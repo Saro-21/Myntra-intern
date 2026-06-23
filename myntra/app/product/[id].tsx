@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Heart, ShoppingBag } from "lucide-react-native";
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 
 // Mock product data - in a real app, this would come from an API
@@ -90,6 +91,7 @@ export default function ProductDetails() {
   const scrollViewRef = useRef<ScrollView>(null);
   const autoScrollTimer = useRef<NodeJS.Timeout>();
   const { user } = useAuth();
+  const { addToRecentlyViewed } = useRecentlyViewed();
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
   useEffect(() => {
@@ -98,10 +100,11 @@ export default function ProductDetails() {
     const fetchproduct = async () => {
       try {
         setIsLoading(true);
-        const product = await axios.get(
+        const res = await axios.get(
           `https://myntra-clone-xj36.onrender.com/product/${id}`
         );
-        setproduct(product.data);
+        setproduct(res.data);
+        addToRecentlyViewed(res.data);
       } catch (error) {
         console.log(error);
         setIsLoading(false);

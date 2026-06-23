@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { Search, ChevronRight } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 
 // const categories = [
@@ -100,12 +101,10 @@ export default function Home() {
   const [product, setproduct] = useState<any>(null);
   const [categories, setcategories] = useState<any>(null);
   const { user } = useAuth();
-  const handleProductPress = (productId: number) => {
-    if (!user) {
-      router.push("/login");
-    } else {
-      router.push(`/product/${productId}`);
-    }
+  const { recentlyViewed } = useRecentlyViewed();
+  
+  const handleProductPress = (productId: string | number) => {
+    router.push(`/product/${productId}`);
   };
   useEffect(() => {
     const fetchproduct = async () => {
@@ -194,6 +193,46 @@ export default function Home() {
           ))}
         </ScrollView>
       </View>
+
+      {recentlyViewed && recentlyViewed.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>RECENTLY VIEWED</Text>
+            <TouchableOpacity style={styles.viewAll} onPress={() => router.push("/recently-viewed")}>
+              <Text style={styles.viewAllText}>View All</Text>
+              <ChevronRight size={20} color="#ff3f6c" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.recentlyViewedScroll}
+          >
+            {recentlyViewed.map((item) => (
+              <TouchableOpacity
+                key={item.productId}
+                style={styles.recentlyViewedCard}
+                onPress={() => handleProductPress(item.productId)}
+                activeOpacity={0.9}
+              >
+                <Image source={{ uri: item.images[0] }} style={styles.recentlyViewedImage} />
+                <View style={styles.recentlyViewedInfo}>
+                  <Text style={styles.recentlyViewedBrand} numberOfLines={1}>
+                    {item.brand}
+                  </Text>
+                  <Text style={styles.recentlyViewedName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.recentlyViewedPrice}>₹{item.price}</Text>
+                    <Text style={styles.recentlyViewedDiscount}>{item.discount}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -396,5 +435,52 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginTop: 50,
+  },
+  recentlyViewedScroll: {
+    marginHorizontal: -15,
+    paddingLeft: 8,
+  },
+  recentlyViewedCard: {
+    width: 140,
+    marginHorizontal: 8,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    overflow: "hidden",
+    marginBottom: 5,
+  },
+  recentlyViewedImage: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  recentlyViewedInfo: {
+    padding: 8,
+  },
+  recentlyViewedBrand: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#666",
+    marginBottom: 2,
+  },
+  recentlyViewedName: {
+    fontSize: 13,
+    color: "#3e3e3e",
+    marginBottom: 4,
+  },
+  recentlyViewedPrice: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#3e3e3e",
+    marginRight: 6,
+  },
+  recentlyViewedDiscount: {
+    fontSize: 11,
+    color: "#ff3f6c",
+    fontWeight: "600",
   },
 });

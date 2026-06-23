@@ -1,4 +1,17 @@
+import * as NativeSecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+
+// Web compatibility fallback wrapper
+const SecureStore = Platform.OS === "web" ? {
+  setItemAsync: async (key: string, val: string) => { localStorage.setItem(key, val); },
+  getItemAsync: async (key: string) => localStorage.getItem(key),
+  deleteItemAsync: async (key: string) => { localStorage.removeItem(key); },
+} : NativeSecureStore;
+
+/*
+Original imported module (fails on Web platform):
 import * as SecureStore from "expo-secure-store";
+*/
 
 export const saveUserData = async (
   _id: string,
