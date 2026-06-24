@@ -14,10 +14,6 @@
   ],
   "rewrites": [
     {
-      "source": "/product/:id",
-      "destination": "/product/[id].html"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
