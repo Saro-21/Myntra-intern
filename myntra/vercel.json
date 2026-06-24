@@ -2,13 +2,26 @@
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "env": {
+    "MONGO_URI": "mongodb+srv://sarabhoji21:Sarabhoji%402102@sarabhoji.fxbd5sj.mongodb.net/myntra?retryWrites=true&w=majority"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/product/:id",
       "destination": "/product/[id].html"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
