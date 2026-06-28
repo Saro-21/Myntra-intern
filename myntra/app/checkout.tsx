@@ -24,7 +24,7 @@ export default function Checkout() {
       return;
     }
     try {
-      await axios.post(`${API_URL}/order/create/${user._id}`, {
+      await axios.post(`${API_URL}/order?action=create&userId=${user._id}`, {
         shippingAddress: "123 Main Street, Apt 4B, New York, NY, 10001",
         paymentMethod: "Card",
       });

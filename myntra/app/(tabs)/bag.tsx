@@ -53,7 +53,7 @@ export default function Bag() {
     if (user) {
       try {
         setIsLoading(true);
-        const bag = await axios.get(`${API_URL}/bag/${user._id}`);
+        const bag = await axios.get(`${API_URL}/bag?userId=${user._id}`);
         setbag(bag.data);
       } catch (error) {
         console.log(error);
@@ -95,7 +95,7 @@ export default function Bag() {
   );
   const handledelete=async(itemid:any)=>{
     try {
-      await axios.delete(`${API_URL}/bag/${itemid}`)
+      await axios.delete(`${API_URL}/bag?itemId=${itemid}`)
       fetchproduct();
     } catch (error) {
       console.log(error)

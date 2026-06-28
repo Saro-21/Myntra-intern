@@ -96,25 +96,23 @@ export default function ProductDetails() {
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
   useEffect(() => {
-    // Simulate loading time
+    if (!id) return; // Guard: wait until Expo Router resolves the param
 
     const fetchproduct = async () => {
       try {
         setIsLoading(true);
-        const res = await axios.get(
-          `${API_URL}/product/${id}`
-        );
+        const res = await axios.get(`${API_URL}/product?id=${id}`);
         setproduct(res.data);
         addToRecentlyViewed(res.data);
       } catch (error) {
-        console.log(error);
+        console.log("Product fetch error:", error);
         setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
     };
     fetchproduct();
-  }, []);
+  }, [id]); // Re-run when id becomes available
 
   useEffect(() => {
     // Start auto-scroll

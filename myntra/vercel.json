@@ -1,7 +1,6 @@
 {
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist",
-  "cleanUrls": true,
   "headers": [
     {
       "source": "/api/(.*)",
@@ -13,9 +12,17 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/((?!api(?:/|$)).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/product/:id", "destination": "/index.html" },
+    { "source": "/bag",              "destination": "/index.html" },
+    { "source": "/wishlist",         "destination": "/index.html" },
+    { "source": "/profile",          "destination": "/index.html" },
+    { "source": "/categories",       "destination": "/index.html" },
+    { "source": "/checkout",         "destination": "/index.html" },
+    { "source": "/orders",           "destination": "/index.html" },
+    { "source": "/recently-viewed",  "destination": "/index.html" },
+    { "source": "/login",            "destination": "/index.html" },
+    { "source": "/signup",           "destination": "/index.html" }
   ]
 }
+
+

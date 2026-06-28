@@ -46,7 +46,7 @@ export default function Wishlist() {
     if (user) {
       try {
         setIsLoading(true);
-        const bag = await axios.get(`${API_URL}/wishlist/${user._id}`);
+        const bag = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
         setwishlist(bag.data);
       } catch (error) {
         console.log(error);
@@ -58,7 +58,7 @@ export default function Wishlist() {
   };
   const handledelete=async(itemid:any)=>{
     try {
-      await axios.delete(`${API_URL}/wishlist/${itemid}`)
+      await axios.delete(`${API_URL}/wishlist?itemId=${itemid}`)
       fetchproduct();
     } catch (error) {
       console.log(error)

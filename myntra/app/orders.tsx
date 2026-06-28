@@ -143,7 +143,7 @@ export default function Orders() {
       if (user) {
         try {
           setIsLoading(true);
-          const product = await axios.get(`${API_URL}/order/user/${user._id}`);
+          const product = await axios.get(`${API_URL}/order?userId=${user._id}`);
           setorder(product.data);
         } catch (error) {
           console.log(error);

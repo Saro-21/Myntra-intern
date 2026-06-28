@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user/login`, {
+    const res = await axios.post(`${API_URL}/user?action=login`, {
       email,
       password,
     });
@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   const Signup = async (fullName: string, email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user/signup`, {
+    const res = await axios.post(`${API_URL}/user?action=signup`, {
       fullName,
       email,
       password,
