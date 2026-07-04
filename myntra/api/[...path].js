@@ -38,7 +38,10 @@ async function connectDB() {
 
 // ─── Schemas / Models ───────────────────────────────────────────────────────
 const ProductSchema = new mongoose.Schema(
-  { name: String, brand: String, price: Number, discount: String, description: String, sizes: [String], images: [String] },
+  { name: String, brand: String, price: Number, discount: String, description: String, sizes: [String], images: [String],
+    stock: { type: Number, default: 100, min: 0 },
+    inStock: { type: Boolean, default: true },
+  },
   { timestamps: true }
 );
 const CategorySchema = new mongoose.Schema(
@@ -50,9 +53,19 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 const BagSchema = new mongoose.Schema(
-  { userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" }, size: String, quantity: Number },
-  { timestamps: true }
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    size: { type: String, default: "M" },
+    quantity: { type: Number, default: 1, min: 1 },
+    priceAtAdd: { type: Number, default: null },
+    savedForLater: { type: Boolean, default: false },
+    isDiscontinued: { type: Boolean, default: false },
+  },
+  { timestamps: true, versionKey: "__v" }
 );
+BagSchema.index({ userId: 1, savedForLater: 1 });
+BagSchema.index({ userId: 1, productId: 1, size: 1 }, { unique: true });
 const WishlistSchema = new mongoose.Schema(
   { userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" } },
   { timestamps: true }
@@ -369,15 +382,110 @@ module.exports = async (req, res) => {
     }
 
     // ── BAG ───────────────────────────────────────────────────────────────
-    // POST   /api/bag                  → add item to bag
-    // GET    /api/bag?userId=xxx       → get bag items for user
+    // POST   /api/bag                  → add item to bag (with price snapshot)
+    // GET    /api/bag?userId=xxx       → get active, saved, discontinued + total
+    // GET    /api/bag/validate-checkout?userId=xxx → pre-checkout verification
+    // PATCH  /api/bag?action=update-quantity → update item quantity (optimistic locking)
+    // PATCH  /api/bag?action=save-for-later → move to save-for-later (optimistic locking)
+    // PATCH  /api/bag?action=move-to-cart → restore item to active cart (optimistic locking)
     // DELETE /api/bag?itemId=xxx       → remove item from bag
     if (path0 === "bag") {
+      const sub = pathParts[1] || "";
+
+      // ── Checkout Validation ───────────────────────────────────────────────
+      if (sub === "validate-checkout" && method === "GET") {
+        const { userId } = query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+
+        const activeItems = await Bag.find({ userId, savedForLater: false }).populate("productId");
+        const report = { valid: true, warnings: [], errors: [], discontinuedIds: [], total: 0 };
+
+        for (const item of activeItems) {
+          const product = item.productId;
+          if (!product) {
+            await Bag.findByIdAndUpdate(item._id, { $set: { isDiscontinued: true } });
+            report.discontinuedIds.push(item._id);
+            report.warnings.push({
+              itemId: item._id,
+              type: "DISCONTINUED",
+              message: "A product in your cart is no longer available and has been flagged."
+            });
+            continue;
+          }
+
+          if (!product.inStock || product.stock < item.quantity) {
+            report.valid = false;
+            report.errors.push({
+              itemId: item._id,
+              productId: product._id,
+              productName: product.name,
+              type: "OUT_OF_STOCK",
+              availableStock: product.stock,
+              requestedQuantity: item.quantity,
+              message: `"${product.name}" has only ${product.stock} units in stock.`
+            });
+            continue;
+          }
+
+          if (item.priceAtAdd !== null && item.priceAtAdd !== product.price) {
+            const direction = product.price > item.priceAtAdd ? "increased" : "decreased";
+            report.warnings.push({
+              itemId: item._id,
+              productId: product._id,
+              productName: product.name,
+              type: "PRICE_CHANGED",
+              priceAtAdd: item.priceAtAdd,
+              currentPrice: product.price,
+              message: `"${product.name}" price has ${direction} from ₹${item.priceAtAdd} to ₹${product.price}.`
+            });
+            await Bag.findByIdAndUpdate(item._id, { $set: { priceAtAdd: product.price } });
+          }
+
+          report.total += product.price * item.quantity;
+        }
+        return res.json(report);
+      }
+
+      // ── GET Cart Items ────────────────────────────────────────────────────
+      if (method === "GET" && query.userId) {
+        const allItems = await Bag.find({ userId: query.userId }).populate("productId");
+        const activeItems = allItems.filter(i => !i.savedForLater && !i.isDiscontinued);
+        const savedItems  = allItems.filter(i => i.savedForLater);
+        const discontinued = allItems.filter(i => i.isDiscontinued);
+        const total = activeItems.reduce((sum, i) => sum + (i.productId?.price || i.priceAtAdd || 0) * (i.quantity || 1), 0);
+        return res.json({ activeItems, savedItems, discontinued, total });
+      }
+
+      // ── ADD to Cart ───────────────────────────────────────────────────────
       if (method === "POST") {
         const { userId, productId, size, quantity } = req.body;
-        const item = await Bag.create({ userId, productId, size: size || "M", quantity: quantity || 1 });
-        
-        // Schedule cart abandonment reminder (scheduled for 2 minutes from now)
+        if (!userId || !productId) return res.status(400).json({ message: "userId and productId are required" });
+
+        const product = await Product.findById(productId);
+        if (!product) return res.status(404).json({ message: "Product not found" });
+        if (!product.inStock || product.stock < 1) return res.status(409).json({ message: "Product is out of stock" });
+
+        const existing = await Bag.findOne({ userId, productId, size: size || "M", savedForLater: false });
+        if (existing) {
+          const updated = await Bag.findOneAndUpdate(
+            { _id: existing._id, __v: existing.__v },
+            { $inc: { quantity: quantity || 1 } },
+            { new: true }
+          );
+          if (!updated) return res.status(409).json({ message: "Conflict: concurrent update detected." });
+          return res.json(updated);
+        }
+
+        const item = await Bag.create({
+          userId,
+          productId,
+          size: size || "M",
+          quantity: quantity || 1,
+          priceAtAdd: product.price,
+          savedForLater: false
+        });
+
+        // Cart Abandonment reminder setup
         try {
           if (userId) {
             const existingJob = await Job.findOne({ userId, type: "CART_ABANDONMENT", status: "pending" });
@@ -387,21 +495,65 @@ module.exports = async (req, res) => {
                 userId,
                 title: "Cart Abandoned 🛒",
                 body: "You left items in your cart! Complete your order now and enjoy exclusive discounts.",
-                scheduledAt: new Date(Date.now() + 2 * 60 * 1000), // 2 minutes for testing
+                scheduledAt: new Date(Date.now() + 2 * 60 * 1000),
                 status: "pending"
               });
             }
           }
         } catch (e) {
-          console.error("Failed to schedule cart abandonment job:", e.message);
+          console.error("Cart abandonment schedule error:", e.message);
         }
 
         return res.json(item);
       }
-      if (method === "GET" && query.userId) {
-        const items = await Bag.find({ userId: query.userId }).populate("productId");
-        return res.json(items);
+
+      // ── PATCH Concurrency updates (Optimistic Locking) ────────────────────
+      if (method === "PATCH") {
+        const { action } = query;
+        const { itemId, quantity, expectedVersion } = req.body;
+
+        if (!itemId || expectedVersion == null) {
+          return res.status(400).json({ message: "itemId and expectedVersion are required" });
+        }
+
+        if (action === "update-quantity") {
+          if (quantity == null || quantity < 1) return res.status(400).json({ message: "Valid quantity is required" });
+          const updated = await Bag.findOneAndUpdate(
+            { _id: itemId, __v: expectedVersion },
+            { $set: { quantity }, $inc: { __v: 1 } },
+            { new: true }
+          );
+          if (!updated) {
+            const current = await Bag.findById(itemId);
+            return res.status(409).json({ message: "Conflict: concurrent update.", currentVersion: current?.__v });
+          }
+          return res.json(updated);
+        }
+
+        if (action === "save-for-later") {
+          const updated = await Bag.findOneAndUpdate(
+            { _id: itemId, __v: expectedVersion },
+            { $set: { savedForLater: true }, $inc: { __v: 1 } },
+            { new: true }
+          );
+          if (!updated) return res.status(409).json({ message: "Conflict: concurrent update." });
+          return res.json(updated);
+        }
+
+        if (action === "move-to-cart") {
+          const updated = await Bag.findOneAndUpdate(
+            { _id: itemId, __v: expectedVersion },
+            { $set: { savedForLater: false }, $inc: { __v: 1 } },
+            { new: true }
+          );
+          if (!updated) return res.status(409).json({ message: "Conflict: concurrent update." });
+          return res.json(updated);
+        }
+
+        return res.status(400).json({ message: "Invalid action" });
       }
+
+      // ── DELETE Item ───────────────────────────────────────────────────────
       if (method === "DELETE" && query.itemId) {
         await Bag.findByIdAndDelete(query.itemId);
         return res.json({ message: "Deleted" });
