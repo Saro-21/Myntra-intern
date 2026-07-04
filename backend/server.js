@@ -30,6 +30,7 @@ app.use("/product", productrouter);
 app.use("/bag", Bagroutes);
 app.use("/wishlist", Wishlistroutes);
 app.use("/Order", OrderRoutes);
+app.use("/order", OrderRoutes); // lowercase alias for frontend compatibility
 app.use("/recently-viewed", RecentlyViewedroutes);
 app.use("/notification", notificationrouter);
 app.use("/transaction", transactionrouter);

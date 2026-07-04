@@ -96,9 +96,9 @@ export default function ProductDetails() {
   const { addToRecentlyViewed } = useRecentlyViewed();
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
 
-  const styles = getStyles(colors);
+  const styles = getStyles(theme, colors);
 
   useEffect(() => {
     if (!id) return; // Guard: wait until Expo Router resolves the param
@@ -342,7 +342,7 @@ export default function ProductDetails() {
   );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (theme: string, colors: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -450,7 +450,7 @@ const getStyles = (colors: any) =>
     },
     selectedSize: {
       borderColor: colors.primary,
-      backgroundColor: colors.theme === 'myntra' ? colors.border : (colors.theme === 'dark' ? '#251c20' : '#fff4f4'),
+      backgroundColor: theme === 'myntra' ? colors.border : (theme === 'dark' ? '#251c20' : '#fff4f4'),
     },
     sizeText: {
       fontSize: 16,

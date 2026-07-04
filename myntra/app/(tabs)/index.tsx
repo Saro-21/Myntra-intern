@@ -6,233 +6,306 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
+  FlatList,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, ChevronRight } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import { Search, ChevronRight, Heart, Bell, Sparkles } from "lucide-react-native";
+import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 import API_URL from "@/constants/Api";
+import { useTheme } from "@/context/ThemeContext";
+import { Animated } from "react-native";
 
-// const categories = [
-//   {
-//     id: 1,
-//     name: "Men",
-//     image:
-//       "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 2,
-//     name: "Women",
-//     image:
-//       "https://images.unsplash.com/photo-1618244972963-dbad0c4abf18?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 3,
-//     name: "Kids",
-//     image:
-//       "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 4,
-//     name: "Beauty",
-//     image:
-//       "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&auto=format&fit=crop",
-//   },
-// ];
+const { width } = Dimensions.get("window");
 
-// const products = [
-//   {
-//     id: 1,
-//     name: "Casual White T-Shirt",
-//     brand: "Roadster",
-//     price: "₹499",
-//     discount: "60% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 2,
-//     name: "Denim Jacket",
-//     brand: "Levis",
-//     price: "₹2499",
-//     discount: "40% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1523205771623-e0faa4d2813d?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 3,
-//     name: "Summer Dress",
-//     brand: "ONLY",
-//     price: "₹1299",
-//     discount: "50% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 4,
-//     name: "Classic Sneakers",
-//     brand: "Nike",
-//     price: "₹3499",
-//     discount: "30% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop",
-//   },
-// ];
+const bannerSlides = [
+  {
+    id: 1,
+    uri: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&auto=format&fit=crop",
+    tag: "NEW ARRIVALS",
+    title: "Summer\nCollection",
+    cta: "Shop Now",
+  },
+  {
+    id: 2,
+    uri: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=800&auto=format&fit=crop",
+    tag: "SALE",
+    title: "Up to 70%\nOff",
+    cta: "Explore Deals",
+  },
+  {
+    id: 3,
+    uri: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop",
+    tag: "TRENDING",
+    title: "Premium\nBrands",
+    cta: "Discover",
+  },
+];
 
 const deals = [
   {
     id: 1,
     title: "Under ₹599",
-    image:
-      "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=500&auto=format&fit=crop",
+    subtitle: "Best Prices",
+    image: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=500&auto=format&fit=crop",
+    badge: "HOT",
   },
   {
     id: 2,
     title: "40-70% Off",
-    image:
-      "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=500&auto=format&fit=crop",
+    subtitle: "Limited Time",
+    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=500&auto=format&fit=crop",
+    badge: "SALE",
+  },
+  {
+    id: 3,
+    title: "New In",
+    subtitle: "Just Dropped",
+    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=500&auto=format&fit=crop",
+    badge: "NEW",
   },
 ];
-
-import { useTheme } from "@/context/ThemeContext";
 
 export default function Home() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [product, setproduct] = useState<any>(null);
-  const [categories, setcategories] = useState<any>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const { user } = useAuth();
   const { recentlyViewed } = useRecentlyViewed();
-  const { colors } = useTheme();
+  const { colors, theme } = useTheme();
+  const styles = getStyles(colors, theme);
 
-  const styles = getStyles(colors);
-  
-  const handleProductPress = (productId: string | number) => {
-    router.push(`/product/${productId}`);
-  };
+  // Banner auto-scroll
+  const [activeBanner, setActiveBanner] = useState(0);
+  const bannerRef = useRef<FlatList>(null);
+  const bannerScrollX = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    const fetchproduct = async () => {
+    const timer = setInterval(() => {
+      const next = (activeBanner + 1) % bannerSlides.length;
+      setActiveBanner(next);
+      bannerRef.current?.scrollToIndex({ index: next, animated: true });
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [activeBanner]);
+
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const cat = await axios.get(`${API_URL}/category`);
-        const product = await axios.get(`${API_URL}/product`);
-        setcategories(cat.data);
-        setproduct(product.data);
+        const [catRes, prodRes] = await Promise.all([
+          axios.get(`${API_URL}/category`),
+          axios.get(`${API_URL}/product`),
+        ]);
+        setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+        setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
       } catch (error) {
         console.log(error);
-        setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchproduct();
+    fetchData();
   }, []);
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>MYNTRA</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <Search size={24} color={colors.text} />
+
+  const handleProductPress = (productId: string | number) => {
+    router.push(`/product/${productId}`);
+  };
+
+  const renderBanner = ({ item }: { item: typeof bannerSlides[0] }) => (
+    <View style={styles.bannerSlide}>
+      <Image source={{ uri: item.uri }} style={styles.bannerImage} resizeMode="cover" />
+      <View style={styles.bannerOverlay} />
+      <View style={styles.bannerContent}>
+        <View style={styles.bannerTag}>
+          <Text style={styles.bannerTagText}>{item.tag}</Text>
+        </View>
+        <Text style={styles.bannerTitle}>{item.title}</Text>
+        <TouchableOpacity style={styles.bannerCta}>
+          <Text style={styles.bannerCtaText}>{item.cta}</Text>
+          <ChevronRight size={14} color="#fff" />
         </TouchableOpacity>
       </View>
+    </View>
+  );
 
-      <Image
-        source={{
-          uri: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&auto=format&fit=crop",
-        }}
-        style={styles.banner}
-      />
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.logo}>MYNTRA</Text>
+          <Text style={styles.greeting}>
+            {user ? `Hi, ${user.name?.split(" ")[0]} 👋` : "Discover Fashion"}
+          </Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/notifications")}>
+            <Bell size={22} color={colors.text} />
+            <View style={styles.notifDot} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/wishlist")}>
+            <Heart size={22} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
+      {/* Search Bar */}
+      <TouchableOpacity
+        style={styles.searchBar}
+        onPress={() => router.push("/categories")}
+        activeOpacity={0.7}
+      >
+        <Search size={18} color={colors.subtext} />
+        <Text style={styles.searchPlaceholder}>Search brands, products & more...</Text>
+      </TouchableOpacity>
+
+      {/* Promo Banner Carousel */}
+      <View style={styles.bannerContainer}>
+        <FlatList
+          ref={bannerRef}
+          data={bannerSlides}
+          renderItem={renderBanner}
+          keyExtractor={(item) => String(item.id)}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: bannerScrollX } } }],
+            { useNativeDriver: false }
+          )}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+            setActiveBanner(idx);
+          }}
+          getItemLayout={(_, index) => ({
+            length: width,
+            offset: width * index,
+            index,
+          })}
+        />
+        {/* Dots */}
+        <View style={styles.bannerDots}>
+          {bannerSlides.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.bannerDot, i === activeBanner && styles.bannerDotActive]}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Categories */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>SHOP BY CATEGORY</Text>
-          <TouchableOpacity style={styles.viewAll}>
-            <Text style={styles.viewAllText}>View All</Text>
-            <ChevronRight size={20} color={colors.primary} />
+          <View>
+            <Text style={styles.sectionTitle}>SHOP BY CATEGORY</Text>
+            <Text style={styles.sectionSubtitle}>Explore our collections</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.viewAllBtn}
+            onPress={() => router.push("/categories")}
+          >
+            <Text style={styles.viewAllText}>See All</Text>
+            <ChevronRight size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.categoriesScroll}
+          contentContainerStyle={styles.categoriesScroll}
         >
           {isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={styles.loader}
-            />
-          ) : !categories || categories.length === 0 ? (
-            <Text style={styles.emptyText}>No categories available</Text>
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
+          ) : categories.length === 0 ? (
+            <Text style={styles.emptyText}>No categories yet</Text>
           ) : (
-            categories.map((category: any) => (
-              <TouchableOpacity key={category._id} style={styles.categoryCard}>
-                <Image
-                  source={{ uri: category.image }}
-                  style={styles.categoryImage}
-                />
-                <Text style={styles.categoryName}>{category.name}</Text>
+            categories.map((cat: any) => (
+              <TouchableOpacity
+                key={cat._id}
+                style={styles.categoryCard}
+                onPress={() =>
+                  router.push({ pathname: "/categories", params: { categoryId: cat._id } })
+                }
+                activeOpacity={0.85}
+              >
+                <View style={styles.categoryImageWrap}>
+                  <Image source={{ uri: cat.image }} style={styles.categoryImage} />
+                  <View style={styles.categoryOverlay} />
+                </View>
+                <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
               </TouchableOpacity>
             ))
           )}
         </ScrollView>
       </View>
 
+      {/* Deals */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>DEALS OF THE DAY</Text>
+          <View>
+            <Text style={styles.sectionTitle}>TODAY'S DEALS</Text>
+            <Text style={styles.sectionSubtitle}>Limited time offers</Text>
+          </View>
         </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.dealsScroll}
+          contentContainerStyle={styles.dealsScroll}
         >
           {deals.map((deal) => (
-            <TouchableOpacity key={deal.id} style={styles.dealCard}>
-              <Image source={{ uri: deal.image }} style={styles.dealImage} />
-              <View style={styles.dealOverlay}>
+            <TouchableOpacity key={deal.id} style={styles.dealCard} activeOpacity={0.9}>
+              <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
+              <View style={styles.dealOverlay} />
+              <View style={styles.dealBadge}>
+                <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+              </View>
+              <View style={styles.dealContent}>
                 <Text style={styles.dealTitle}>{deal.title}</Text>
+                <Text style={styles.dealSubtitle}>{deal.subtitle}</Text>
               </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
+      {/* Recently Viewed */}
       {recentlyViewed && recentlyViewed.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>RECENTLY VIEWED</Text>
-            <TouchableOpacity style={styles.viewAll} onPress={() => router.push("/recently-viewed")}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={20} color={colors.primary} />
+            <View>
+              <Text style={styles.sectionTitle}>RECENTLY VIEWED</Text>
+              <Text style={styles.sectionSubtitle}>Continue where you left off</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.viewAllBtn}
+              onPress={() => router.push("/recently-viewed")}
+            >
+              <Text style={styles.viewAllText}>See All</Text>
+              <ChevronRight size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.recentlyViewedScroll}
+            contentContainerStyle={styles.recentScroll}
           >
             {recentlyViewed.map((item) => (
               <TouchableOpacity
                 key={item.productId}
-                style={styles.recentlyViewedCard}
+                style={styles.recentCard}
                 onPress={() => handleProductPress(item.productId)}
                 activeOpacity={0.9}
               >
-                <Image source={{ uri: item.images[0] }} style={styles.recentlyViewedImage} />
-                <View style={styles.recentlyViewedInfo}>
-                  <Text style={styles.recentlyViewedBrand} numberOfLines={1}>
-                    {item.brand}
-                  </Text>
-                  <Text style={styles.recentlyViewedName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.recentlyViewedPrice}>₹{item.price}</Text>
-                    <Text style={styles.recentlyViewedDiscount}>{item.discount}</Text>
-                  </View>
+                <Image source={{ uri: item.images[0] }} style={styles.recentImage} />
+                <View style={styles.recentInfo}>
+                  <Text style={styles.recentBrand} numberOfLines={1}>{item.brand}</Text>
+                  <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.recentPrice}>₹{item.price}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -240,133 +313,291 @@ export default function Home() {
         </View>
       )}
 
+      {/* Trending Now */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>TRENDING NOW</Text>
+          <View>
+            <Text style={styles.sectionTitle}>TRENDING NOW</Text>
+            <Text style={styles.sectionSubtitle}>What everyone's wearing</Text>
+          </View>
+          <View style={styles.trendingBadge}>
+            <Sparkles size={12} color={colors.primary} />
+            <Text style={styles.trendingBadgeText}>Live</Text>
+          </View>
         </View>
-        <View style={styles.productsGrid}>
-          {isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={styles.loader}
-            />
-          ) : !product || product.length === 0 ? (
-            <Text style={styles.emptyText}>No Product available</Text>
-          ) : ( 
-            <View style={styles.productsGrid}>
-              {product.map((product: any) => (
-                <TouchableOpacity
-                  key={product._id}
-                  style={styles.productCard}
-                  onPress={() => handleProductPress(product._id)}
-                >
+
+        {isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+        ) : products.length === 0 ? (
+          <Text style={styles.emptyText}>No products available</Text>
+        ) : (
+          <View style={styles.productsGrid}>
+            {products.map((product: any) => (
+              <TouchableOpacity
+                key={product._id}
+                style={styles.productCard}
+                onPress={() => handleProductPress(product._id)}
+                activeOpacity={0.9}
+              >
+                <View style={styles.productImageWrap}>
                   <Image
                     source={{ uri: product.images[0] }}
                     style={styles.productImage}
+                    resizeMode="cover"
                   />
-                  <View style={styles.productInfo}>
-                    <Text style={styles.brandName}>{product.brand}</Text>
-                    <Text style={styles.productName}>{product.name}</Text>
-                    <View style={styles.priceRow}>
-                      <Text style={styles.productPrice}>{product.price}</Text>
-                      <Text style={styles.discount}>{product.discount}</Text>
+                  {product.discount && (
+                    <View style={styles.productDiscountBadge}>
+                      <Text style={styles.productDiscountText}>{product.discount}</Text>
                     </View>
+                  )}
+                  <TouchableOpacity style={styles.wishlistBtn}>
+                    <Heart size={16} color={colors.subtext} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.productInfo}>
+                  <Text style={styles.brandName} numberOfLines={1}>{product.brand}</Text>
+                  <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.productPrice}>₹{product.price}</Text>
                   </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
+
+      <View style={{ height: 24 }} />
     </ScrollView>
   );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: any, theme: string) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
+    // Header
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: 15,
-      paddingTop: 50,
+      paddingHorizontal: 18,
+      paddingTop: 52,
+      paddingBottom: 12,
       backgroundColor: colors.card,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    emptyText: {
-      textAlign: "center",
-      marginTop: 20,
-      fontSize: 16,
-      color: colors.subtext,
-    },
     logo: {
-      fontSize: 24,
-      fontWeight: "bold",
+      fontSize: 22,
+      fontWeight: "900",
       color: colors.primary,
+      letterSpacing: 3,
     },
-    searchButton: {
-      padding: 8,
+    greeting: {
+      fontSize: 12,
+      color: colors.subtext,
+      marginTop: 1,
     },
-    banner: {
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    headerBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.inputBackground,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    notifDot: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: colors.primary,
+      borderWidth: 1,
+      borderColor: colors.card,
+    },
+    // Search
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      margin: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.inputBackground,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 10,
+    },
+    searchPlaceholder: {
+      color: colors.subtext,
+      fontSize: 14,
+      flex: 1,
+    },
+    // Banner
+    bannerContainer: {
+      position: "relative",
+      marginBottom: 4,
+    },
+    bannerSlide: {
+      width,
+      height: 210,
+      position: "relative",
+    },
+    bannerImage: {
       width: "100%",
-      height: 200,
-      resizeMode: "cover",
+      height: "100%",
     },
+    bannerOverlay: {
+      position: "absolute",
+      inset: 0,
+      backgroundColor: "rgba(0,0,0,0.35)",
+    },
+    bannerContent: {
+      position: "absolute",
+      bottom: 32,
+      left: 24,
+      right: 24,
+    },
+    bannerTag: {
+      alignSelf: "flex-start",
+      backgroundColor: colors.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 4,
+      marginBottom: 8,
+    },
+    bannerTagText: {
+      color: "#fff",
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 1.5,
+    },
+    bannerTitle: {
+      color: "#fff",
+      fontSize: 26,
+      fontWeight: "900",
+      lineHeight: 32,
+      marginBottom: 12,
+    },
+    bannerCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: "rgba(255,255,255,0.2)",
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.5)",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      gap: 4,
+    },
+    bannerCtaText: {
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    bannerDots: {
+      position: "absolute",
+      bottom: 12,
+      right: 20,
+      flexDirection: "row",
+      gap: 5,
+    },
+    bannerDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "rgba(255,255,255,0.4)",
+    },
+    bannerDotActive: {
+      backgroundColor: "#fff",
+      width: 18,
+    },
+    // Section
     section: {
-      padding: 15,
+      paddingHorizontal: 16,
+      paddingTop: 22,
+      paddingBottom: 4,
     },
     sectionHeader: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 15,
+      marginBottom: 14,
     },
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
+      fontSize: 13,
+      fontWeight: "800",
       color: colors.text,
+      letterSpacing: 1.5,
     },
-    viewAll: {
+    sectionSubtitle: {
+      fontSize: 11,
+      color: colors.subtext,
+      marginTop: 1,
+    },
+    viewAllBtn: {
       flexDirection: "row",
       alignItems: "center",
+      gap: 2,
     },
     viewAllText: {
       color: colors.primary,
-      marginRight: 5,
+      fontSize: 13,
+      fontWeight: "700",
     },
+    // Categories
     categoriesScroll: {
-      marginHorizontal: -15,
+      paddingRight: 8,
+      gap: 12,
     },
     categoryCard: {
-      width: 100,
-      marginHorizontal: 8,
+      width: 88,
+      alignItems: "center",
+    },
+    categoryImageWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      overflow: "hidden",
     },
     categoryImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
+      width: "100%",
+      height: "100%",
+    },
+    categoryOverlay: {
+      position: "absolute",
+      inset: 0,
+      backgroundColor: "rgba(0,0,0,0.05)",
     },
     categoryName: {
       textAlign: "center",
       marginTop: 8,
-      fontSize: 14,
+      fontSize: 12,
       color: colors.text,
+      fontWeight: "600",
     },
+    // Deals
     dealsScroll: {
-      marginHorizontal: -15,
+      gap: 12,
+      paddingRight: 8,
     },
     dealCard: {
-      width: 280,
-      height: 150,
-      marginHorizontal: 8,
-      borderRadius: 10,
+      width: 200,
+      height: 130,
+      borderRadius: 16,
       overflow: "hidden",
+      position: "relative",
     },
     dealImage: {
       width: "100%",
@@ -374,120 +605,178 @@ const getStyles = (colors: any) =>
     },
     dealOverlay: {
       position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: "rgba(0,0,0,0.4)",
-      padding: 15,
+      inset: 0,
+      backgroundColor: "rgba(0,0,0,0.38)",
+    },
+    dealBadge: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 4,
+    },
+    dealBadgeText: {
+      color: "#fff",
+      fontSize: 9,
+      fontWeight: "800",
+      letterSpacing: 1,
+    },
+    dealContent: {
+      position: "absolute",
+      bottom: 12,
+      left: 14,
     },
     dealTitle: {
       color: "#fff",
-      fontSize: 18,
-      fontWeight: "bold",
+      fontSize: 16,
+      fontWeight: "800",
     },
+    dealSubtitle: {
+      color: "rgba(255,255,255,0.75)",
+      fontSize: 11,
+      marginTop: 2,
+    },
+    // Recently Viewed
+    recentScroll: {
+      gap: 12,
+      paddingRight: 8,
+    },
+    recentCard: {
+      width: 130,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    recentImage: {
+      width: "100%",
+      height: 110,
+    },
+    recentInfo: {
+      padding: 8,
+    },
+    recentBrand: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.subtext,
+      textTransform: "uppercase",
+    },
+    recentName: {
+      fontSize: 12,
+      color: colors.text,
+      marginTop: 2,
+    },
+    recentPrice: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.primary,
+      marginTop: 4,
+    },
+    // Trending badge
+    trendingBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: theme === "dark" ? "#2a1f1f" : "#fff0f3",
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme === "dark" ? "#4a2a2a" : "#ffd6df",
+    },
+    trendingBadgeText: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    // Products
     productsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      marginHorizontal: -8,
+      gap: 12,
     },
     productCard: {
-      width: "48%",
-      marginHorizontal: "1%",
-      marginBottom: 15,
+      width: (width - 44) / 2,
       backgroundColor: colors.card,
-      borderRadius: 10,
+      borderRadius: 16,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border,
       shadowColor: colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    productImageWrap: {
+      position: "relative",
     },
     productImage: {
       width: "100%",
       height: 200,
-      borderTopLeftRadius: 10,
-      borderTopRightRadius: 10,
+    },
+    productDiscountBadge: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    productDiscountText: {
+      color: "#fff",
+      fontSize: 10,
+      fontWeight: "800",
+    },
+    wishlistBtn: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme === "dark" ? "rgba(30,30,30,0.85)" : "rgba(255,255,255,0.88)",
+      justifyContent: "center",
+      alignItems: "center",
     },
     productInfo: {
       padding: 10,
     },
     brandName: {
-      fontSize: 14,
+      fontSize: 11,
+      fontWeight: "700",
       color: colors.subtext,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
       marginBottom: 2,
     },
     productName: {
-      fontSize: 16,
+      fontSize: 13,
       color: colors.text,
-      marginBottom: 5,
+      lineHeight: 18,
+      marginBottom: 6,
     },
     priceRow: {
       flexDirection: "row",
       alignItems: "center",
     },
     productPrice: {
-      fontSize: 16,
-      fontWeight: "bold",
+      fontSize: 15,
+      fontWeight: "800",
       color: colors.text,
-      marginRight: 8,
     },
-    discount: {
+    emptyText: {
+      color: colors.subtext,
       fontSize: 14,
-      color: colors.primary,
-      fontWeight: "500",
+      textAlign: "center",
+      padding: 20,
     },
     loader: {
-      marginTop: 50,
-    },
-    recentlyViewedScroll: {
-      marginHorizontal: -15,
-      paddingLeft: 8,
-    },
-    recentlyViewedCard: {
-      width: 140,
-      marginHorizontal: 8,
-      backgroundColor: colors.card,
-      borderRadius: 8,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
-      overflow: "hidden",
-      marginBottom: 5,
-    },
-    recentlyViewedImage: {
-      width: "100%",
-      height: 120,
-      resizeMode: "cover",
-    },
-    recentlyViewedInfo: {
-      padding: 8,
-    },
-    recentlyViewedBrand: {
-      fontSize: 12,
-      fontWeight: "bold",
-      color: colors.subtext,
-      marginBottom: 2,
-    },
-    recentlyViewedName: {
-      fontSize: 13,
-      color: colors.text,
-      marginBottom: 4,
-    },
-    recentlyViewedPrice: {
-      fontSize: 13,
-      fontWeight: "bold",
-      color: colors.text,
-      marginRight: 6,
-    },
-    recentlyViewedDiscount: {
-      fontSize: 11,
-      color: colors.primary,
-      fontWeight: "600",
+      marginTop: 40,
+      marginBottom: 20,
     },
   });
-

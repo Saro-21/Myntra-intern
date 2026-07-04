@@ -32,34 +32,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user?action=login`, {
+    const res = await axios.post(`${API_URL}/user/login`, {
       email,
       password,
     });
 
-    const data = await res.data.user;
-    if (data.fullName) {
-      await saveUserData(data._id, data.fullName, data.email);
-      setUser({ _id: data._id, name: data.name, email: data.email });
-      setIsAuthenticated(true);
-    } else {
-      throw new Error(data.message || "Login failed");
+    const data = res.data.user;
+    if (!data || !data.fullName) {
+      throw new Error(res.data.message || "Login failed");
     }
+    await saveUserData(data._id, data.fullName, data.email);
+    setUser({ _id: data._id, name: data.fullName, email: data.email });
+    setIsAuthenticated(true);
   };
   const Signup = async (fullName: string, email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user?action=signup`, {
+    const res = await axios.post(`${API_URL}/user/signup`, {
       fullName,
       email,
       password,
     });
-    const data = await res.data.user;
-    if (data.fullName) {
-      await saveUserData(data._id, data.fullName, data.email);
-      setUser({ _id: data._id, name: data.name, email: data.email });
-      setIsAuthenticated(true);
-    } else {
-      throw new Error(data.message || "Login failed");
+    const data = res.data.user;
+    if (!data || !data.fullName) {
+      throw new Error(res.data.message || "Signup failed");
     }
+    await saveUserData(data._id, data.fullName, data.email);
+    setUser({ _id: data._id, name: data.fullName, email: data.email });
+    setIsAuthenticated(true);
   };
   const logout = async () => {
     await clearUserData();

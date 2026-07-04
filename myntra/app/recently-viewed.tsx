@@ -32,9 +32,9 @@ const formatRelativeTime = (dateString: string) => {
 export default function RecentlyViewedScreen() {
   const router = useRouter();
   const { recentlyViewed, clearHistory, isLoading } = useRecentlyViewed();
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
 
-  const styles = getStyles(colors);
+  const styles = getStyles(theme, colors);
 
   const handleProductPress = (productId: string) => {
     router.push(`/product/${productId}`);
@@ -110,7 +110,7 @@ export default function RecentlyViewedScreen() {
   );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (theme: string, colors: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -228,7 +228,7 @@ const getStyles = (colors: any) =>
       width: 90,
       height: 90,
       borderRadius: 45,
-      backgroundColor: colors.theme === 'myntra' ? colors.border : (colors.theme === 'dark' ? '#251c20' : '#fff0f3'),
+      backgroundColor: theme === 'myntra' ? colors.border : (theme === 'dark' ? '#251c20' : '#fff0f3'),
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 20,

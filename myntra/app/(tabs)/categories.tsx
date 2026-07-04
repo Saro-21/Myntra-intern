@@ -1,7 +1,6 @@
 import {
   StyleSheet,
   Image,
-  Platform,
   View,
   Text,
   TextInput,
@@ -10,14 +9,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 
-import { Collapsible } from "@/components/Collapsible";
-import { ExternalLink } from "@/components/ExternalLink";
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { IconSymbol } from "@/components/ui/IconSymbol";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Search, X } from "lucide-react-native";
 import axios from "axios";
 import API_URL from "@/constants/Api";
@@ -122,6 +115,7 @@ import { useTheme } from "@/context/ThemeContext";
 
 export default function TabTwoScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
@@ -132,6 +126,12 @@ export default function TabTwoScreen() {
   const { colors } = useTheme();
 
   const styles = getStyles(colors);
+
+  useEffect(() => {
+    if (params && params.categoryId) {
+      setSelectedCategory(params.categoryId as string);
+    }
+  }, [params]);
 
   useEffect(() => {
     const fetchproduct = async () => {

@@ -3,7 +3,7 @@ import { useColorScheme, Appearance } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../constants/Colors";
 
-export type ThemeType = "light" | "dark" | "myntra";
+export type ThemeType = "light" | "dark" | "myntra" | "lightBlue" | "peacockGreen";
 export type ThemeSelection = ThemeType | "system";
 
 export type ThemeColors = typeof Colors.light;

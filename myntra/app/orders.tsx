@@ -30,7 +30,7 @@ export default function Orders() {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const [orders, setorder] = useState<any>(null);
-  const { colors } = useTheme();
+  const { theme, colors } = useTheme();
 
   const styles = getStyles(colors);
 
@@ -102,7 +102,7 @@ export default function Orders() {
                 <Text style={styles.orderId}>Order #{order._id.slice(-8).toUpperCase()}</Text>
                 <Text style={styles.orderDate}>Placed on {order.date}</Text>
               </View>
-              <View style={[styles.statusContainer, { backgroundColor: colors.theme === 'dark' ? '#182b20' : '#e6f4ea' }]}>
+              <View style={[styles.statusContainer, { backgroundColor: theme === 'dark' ? '#182b20' : '#e6f4ea' }]}>
                 <Package size={16} color={colors.success} />
                 <Text style={styles.orderStatus}>{order.status}</Text>
               </View>
