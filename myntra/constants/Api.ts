@@ -1,9 +1,9 @@
 // Central API base URL
-// For local dev:      EXPO_PUBLIC_API_URL=http://localhost:5000  (set in .env)
-// For production:     EXPO_PUBLIC_API_URL=https://<your-render-url>.onrender.com (set in Vercel dashboard)
+// For local dev:      set EXPO_PUBLIC_API_URL=http://localhost:5000 in .env
+// For production:     falls back to the deployed Render backend
+const RENDER_BACKEND_URL = "https://web-developement-intern.onrender.com";
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ??
-  (typeof window !== "undefined" ? window.location.origin + "/api" : "/api");
+const API_URL: string =
+  (process.env.EXPO_PUBLIC_API_URL as string | undefined) ?? RENDER_BACKEND_URL;
 
 export default API_URL;
