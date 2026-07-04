@@ -13,6 +13,34 @@ router.post("/", async (req, res) => {
   }
 });
 
+router.get("/", async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ message: "userId query parameter is required" });
+    }
+    const wishlist = await Wishlist.find({ userId }).populate("productId");
+    res.status(200).json(wishlist);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
+router.delete("/", async (req, res) => {
+  try {
+    const itemId = req.query.itemId;
+    if (!itemId) {
+      return res.status(400).json({ message: "itemId query parameter is required" });
+    }
+    await Wishlist.findByIdAndDelete(itemId);
+    res.status(200).json({ message: "Item removed from Wishlist" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Error removing item from Wishlist" });
+  }
+});
+
 router.get("/:userid", async (req, res) => {
   try {
     const bag = await Wishlist.find({ userId: req.params.userid }).populate(

@@ -13,6 +13,7 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
+import { useTheme } from "@/context/ThemeContext";
 
 // const wishlistItems = [
 //   {
@@ -39,6 +40,10 @@ export default function Wishlist() {
   const { user } = useAuth();
   const [wishlist, setwishlist] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { colors } = useTheme();
+
+  const styles = getStyles(colors);
+
   useEffect(() => {
     fetchproduct();
   }, [user]);
@@ -72,7 +77,7 @@ export default function Wishlist() {
           <Text style={styles.headerTitle}>Wishlist</Text>
         </View>
         <View style={styles.emptyState}>
-          <Heart size={64} color="#ff3f6c" />
+          <Heart size={64} color={colors.primary} />
           <Text style={styles.emptyTitle}>
             Please login to view your wishlist
           </Text>
@@ -89,7 +94,7 @@ export default function Wishlist() {
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#ff3f6c" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -112,7 +117,7 @@ export default function Wishlist() {
               </View>
             </View>
             <TouchableOpacity style={styles.removeButton} onPress={()=>handledelete(item._id)}>
-              <Trash2 size={24} color="#ff3f6c" />
+              <Trash2 size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
         ))}
@@ -121,105 +126,106 @@ export default function Wishlist() {
   );
 }
 
-const styles = StyleSheet.create({
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    padding: 15,
-    paddingTop: 50,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-  },
-  content: {
-    flex: 1,
-    padding: 15,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    color: "#3e3e3e",
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  loginButton: {
-    backgroundColor: "#ff3f6c",
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 10,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  wishlistItem: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    overflow: "hidden",
-  },
-  itemImage: {
-    width: 100,
-    height: 120,
-  },
-  itemInfo: {
-    flex: 1,
-    padding: 15,
-  },
-  brandName: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 5,
-  },
-  itemName: {
-    fontSize: 16,
-    color: "#3e3e3e",
-    marginBottom: 10,
-  },
-  priceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginRight: 10,
-  },
-  discount: {
-    fontSize: 14,
-    color: "#ff3f6c",
-  },
-  removeButton: {
-    padding: 15,
-    justifyContent: "center",
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      padding: 15,
+      paddingTop: 50,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    content: {
+      flex: 1,
+      padding: 15,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      color: colors.text,
+      marginTop: 20,
+      marginBottom: 20,
+    },
+    loginButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 40,
+      paddingVertical: 15,
+      borderRadius: 10,
+    },
+    loginButtonText: {
+      color: "#fff",
+      fontSize: 16,
+      fontWeight: "bold",
+    },
+    wishlistItem: {
+      flexDirection: "row",
+      backgroundColor: colors.card,
+      borderRadius: 10,
+      marginBottom: 15,
+      shadowColor: colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 5,
+      overflow: "hidden",
+    },
+    itemImage: {
+      width: 100,
+      height: 120,
+    },
+    itemInfo: {
+      flex: 1,
+      padding: 15,
+    },
+    brandName: {
+      fontSize: 14,
+      color: colors.subtext,
+      marginBottom: 5,
+    },
+    itemName: {
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 10,
+    },
+    priceContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    price: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: colors.text,
+      marginRight: 10,
+    },
+    discount: {
+      fontSize: 14,
+      color: colors.primary,
+    },
+    removeButton: {
+      padding: 15,
+      justifyContent: "center",
+    },
+  });

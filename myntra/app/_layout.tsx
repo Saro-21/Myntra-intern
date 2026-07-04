@@ -10,15 +10,16 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/hooks/useColorScheme";
 import React from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { RecentlyViewedProvider } from "@/context/RecentlyViewedContext";
+import { ThemeProvider as AppThemeProvider, useTheme } from "@/context/ThemeContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -34,17 +35,46 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <AppThemeProvider>
+      <RootLayoutContent />
+    </AppThemeProvider>
+  );
+}
+
+function RootLayoutContent() {
+  const { theme, colors } = useTheme();
+
+  const baseTheme = theme === "dark" ? DarkTheme : DefaultTheme;
+
+  // High contrast custom navigation theme
+  const customNavTheme = {
+    ...baseTheme,
+    dark: theme === "dark",
+    colors: {
+      ...baseTheme.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.primary,
+    },
+  };
+
+  return (
+    <ThemeProvider value={customNavTheme}>
       <AuthProvider>
-        <RecentlyViewedProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="(auth)" />
-            {/* <Stack.Screen name="(auth)" /> */}
-          </Stack>
-          <StatusBar style="auto" />
-        </RecentlyViewedProvider>
+        <NotificationProvider>
+          <RecentlyViewedProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(auth)" />
+            </Stack>
+            <StatusBar style={theme === "dark" ? "light" : "dark"} />
+          </RecentlyViewedProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );
 }
+

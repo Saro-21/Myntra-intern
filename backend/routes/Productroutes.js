@@ -4,6 +4,11 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
+    if (req.query.id) {
+      const product = await Product.findById(req.query.id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      return res.status(200).json(product);
+    }
     const categories = await Product.find();
     res.status(200).json(categories);
   } catch (error) {

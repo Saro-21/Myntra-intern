@@ -52,6 +52,40 @@ const RecentlyViewedSchema = new mongoose.Schema(
 );
 RecentlyViewedSchema.index({ userId: 1, productId: 1 }, { unique: true });
 
+const PushTokenSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  token: { type: String, required: true, unique: true },
+  deviceType: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const NotificationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  title: { type: String, required: true },
+  body: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const JobSchema = new mongoose.Schema({
+  type: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  title: { type: String, required: true },
+  body: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  scheduledAt: { type: Date, required: true },
+  status: { type: String, enum: ["pending", "processing", "completed", "failed"], default: "pending" },
+  attempts: { type: Number, default: 0 },
+  maxAttempts: { type: Number, default: 3 },
+  lastError: { type: String, default: null }
+}, { timestamps: true });
+
+const NotificationLogSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  sentAt: { type: Date, default: Date.now }
+});
+
 const Product        = mongoose.models.Product        || mongoose.model("Product", ProductSchema);
 const Category       = mongoose.models.Category       || mongoose.model("Category", CategorySchema);
 const User           = mongoose.models.User           || mongoose.model("User", UserSchema);
@@ -59,6 +93,10 @@ const Bag            = mongoose.models.Bag            || mongoose.model("Bag", B
 const Wishlist       = mongoose.models.Wishlist       || mongoose.model("Wishlist", WishlistSchema);
 const Order          = mongoose.models.Order          || mongoose.model("Order", OrderSchema);
 const RecentlyViewed = mongoose.models.RecentlyViewed || mongoose.model("RecentlyViewed", RecentlyViewedSchema);
+const PushToken       = mongoose.models.PushToken       || mongoose.model("PushToken", PushTokenSchema);
+const Notification    = mongoose.models.Notification    || mongoose.model("Notification", NotificationSchema);
+const Job             = mongoose.models.Job             || mongoose.model("Job", JobSchema);
+const NotificationLog = mongoose.models.NotificationLog || mongoose.model("NotificationLog", NotificationLogSchema);
 
 // ─── CORS Helper ────────────────────────────────────────────────────────────
 function setCORS(res) {
@@ -77,6 +115,136 @@ function parseQuery(url) {
     if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || "");
   }
   return params;
+}
+
+// ─── Worker Function ────────────────────────────────────────────────────────
+async function runQueueWorkerInternal() {
+  const processed = [];
+  const errors = [];
+  
+  try {
+    const jobs = await Job.find({
+      status: "pending",
+      scheduledAt: { $lte: new Date() }
+    });
+
+    for (const job of jobs) {
+      // Check if this is a cart abandonment job, and verify if the cart is still active
+      if (job.type === "CART_ABANDONMENT") {
+        const bagCount = await Bag.countDocuments({ userId: job.userId });
+        if (bagCount === 0) {
+          job.status = "completed";
+          job.lastError = "Cart was emptied or order completed, skipped notification.";
+          await job.save();
+          processed.push({ jobId: job._id, status: "completed", skipped: true });
+          continue;
+        }
+      }
+
+      // Enforce rate limiting: max 5 notifications per hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentCount = await NotificationLog.countDocuments({
+        userId: job.userId,
+        sentAt: { $gte: oneHourAgo }
+      });
+
+      if (recentCount >= 5) {
+        job.status = "failed";
+        job.lastError = `Rate limit exceeded: Sent ${recentCount} notifications in the last hour. Limit is 5.`;
+        await job.save();
+        processed.push({ jobId: job._id, status: "failed", error: "Rate limit exceeded" });
+        continue;
+      }
+
+      job.status = "processing";
+      job.attempts += 1;
+      await job.save();
+
+      try {
+        const tokens = await PushToken.find({ userId: job.userId });
+        let pushSucceeded = false;
+        let invalidTokens = [];
+
+        if (tokens.length > 0) {
+          const messages = tokens.map(t => ({
+            to: t.token,
+            sound: "default",
+            title: job.title,
+            body: job.body,
+            data: job.data
+          }));
+
+          const response = await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              "Accept-Encoding": "gzip, deflate"
+            },
+            body: JSON.stringify(messages)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Expo API error: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          if (result.data && Array.isArray(result.data)) {
+            result.data.forEach((ticket, idx) => {
+              const currentToken = tokens[idx];
+              if (ticket.status === "error") {
+                if (ticket.details && ticket.details.error === "DeviceNotRegistered") {
+                  invalidTokens.push(currentToken.token);
+                }
+              }
+            });
+            pushSucceeded = true;
+          }
+        } else {
+          // Fallback if no push tokens: we succeed the job at history log level
+          pushSucceeded = true;
+        }
+
+        if (invalidTokens.length > 0) {
+          await PushToken.deleteMany({ token: { $in: invalidTokens } });
+        }
+
+        if (pushSucceeded) {
+          await Notification.create({
+            userId: job.userId,
+            title: job.title,
+            body: job.body,
+            data: job.data
+          });
+
+          await NotificationLog.create({
+            userId: job.userId,
+            sentAt: new Date()
+          });
+
+          job.status = "completed";
+          job.lastError = null;
+          await job.save();
+          processed.push({ jobId: job._id, status: "completed", removedTokens: invalidTokens.length });
+        } else {
+          throw new Error("Push attempt did not succeed");
+        }
+      } catch (err) {
+        job.lastError = err.message;
+        if (job.attempts >= job.maxAttempts) {
+          job.status = "failed";
+        } else {
+          job.status = "pending";
+        }
+        await job.save();
+        errors.push({ jobId: job._id, attempt: job.attempts, error: err.message });
+      }
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, processedJobs: processed.length, failedAttempts: errors.length, processed, errors };
 }
 
 // ─── Main Handler ───────────────────────────────────────────────────────────
@@ -158,6 +326,26 @@ module.exports = async (req, res) => {
       if (method === "POST") {
         const { userId, productId, size, quantity } = req.body;
         const item = await Bag.create({ userId, productId, size: size || "M", quantity: quantity || 1 });
+        
+        // Schedule cart abandonment reminder (scheduled for 2 minutes from now)
+        try {
+          if (userId) {
+            const existingJob = await Job.findOne({ userId, type: "CART_ABANDONMENT", status: "pending" });
+            if (!existingJob) {
+              await Job.create({
+                type: "CART_ABANDONMENT",
+                userId,
+                title: "Cart Abandoned 🛒",
+                body: "You left items in your cart! Complete your order now and enjoy exclusive discounts.",
+                scheduledAt: new Date(Date.now() + 2 * 60 * 1000), // 2 minutes for testing
+                status: "pending"
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to schedule cart abandonment job:", e.message);
+        }
+
         return res.json(item);
       }
       if (method === "GET" && query.userId) {
@@ -213,6 +401,27 @@ module.exports = async (req, res) => {
           total,
         });
         await Bag.deleteMany({ userId: query.userId });
+
+        // Clean up pending cart abandonment jobs and send real-time order update notification
+        try {
+          await Job.deleteMany({ userId: query.userId, type: "CART_ABANDONMENT", status: "pending" });
+          
+          await Job.create({
+            type: "REALTIME_PUSH",
+            userId: query.userId,
+            title: "Order Placed Successfully! 🎉",
+            body: `Your order for ₹${total} has been received and is being processed.`,
+            data: { type: "order_update", orderId: order._id.toString() },
+            scheduledAt: new Date(),
+            status: "pending"
+          });
+
+          // Run worker synchronously to send the notification immediately
+          await runQueueWorkerInternal();
+        } catch (e) {
+          console.error("Order notification triggers failed:", e.message);
+        }
+
         return res.json(order);
       }
       if (method === "GET" && query.userId) {
@@ -229,16 +438,26 @@ module.exports = async (req, res) => {
     if (path0 === "recently-viewed") {
       if (method === "POST" && query.action === "sync") {
         const { userId, localHistory } = req.body;
+        // Upsert each local item, using the most recent viewedAt for deduplication
         for (const item of localHistory || []) {
+          if (!item.productId) continue;
           await RecentlyViewed.findOneAndUpdate(
             { userId, productId: item.productId },
-            { viewedAt: new Date(item.viewedAt) },
+            { $max: { viewedAt: new Date(item.viewedAt) } },
             { upsert: true }
           );
         }
+        // Enforce 20-item limit: delete anything beyond top 20 by viewedAt
+        const top20 = await RecentlyViewed.find({ userId })
+          .sort({ viewedAt: -1 }).limit(20).select("_id");
+        if (top20.length === 20) {
+          const top20Ids = top20.map(h => h._id);
+          await RecentlyViewed.deleteMany({ userId, _id: { $nin: top20Ids } });
+        }
+        // Return full history with populated product and viewedAt
         const history = await RecentlyViewed.find({ userId })
           .sort({ viewedAt: -1 }).limit(20).populate("productId");
-        return res.json(history.map((h) => h.productId));
+        return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
       if (method === "POST") {
         const { userId, productId } = req.body;
@@ -255,8 +474,115 @@ module.exports = async (req, res) => {
       if (method === "GET" && query.userId) {
         const history = await RecentlyViewed.find({ userId: query.userId })
           .sort({ viewedAt: -1 }).limit(20).populate("productId");
-        return res.json(history.map((h) => h.productId));
+        return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
+    }
+
+    // ── NOTIFICATION & JOB QUEUE ──────────────────────────────────────────
+    if (path0 === "notification") {
+      // POST /api/notification?action=register
+      if (method === "POST" && query.action === "register") {
+        const { userId, token, deviceType } = req.body;
+        if (!token) return res.status(400).json({ message: "Token is required" });
+        const entry = await PushToken.findOneAndUpdate(
+          { token },
+          { userId: userId || null, deviceType: deviceType || "web" },
+          { upsert: true, new: true }
+        );
+        return res.json({ message: "Token registered", entry });
+      }
+
+      // POST /api/notification?action=unregister
+      if (method === "POST" && query.action === "unregister") {
+        const { token } = req.body;
+        await PushToken.deleteOne({ token });
+        return res.json({ message: "Token unregistered" });
+      }
+
+      // GET /api/notification?userId=xxx
+      if (method === "GET" && query.userId) {
+        const filter = { userId: query.userId };
+        if (query.unread === "true") {
+          filter.read = false;
+        }
+        const notifications = await Notification.find(filter).sort({ createdAt: -1 }).limit(50);
+        return res.json(notifications);
+      }
+
+      // POST /api/notification?action=mark-read
+      if (method === "POST" && query.action === "mark-read") {
+        const { userId, notificationId, all } = req.body;
+        if (all) {
+          await Notification.updateMany({ userId }, { read: true });
+        } else if (notificationId) {
+          await Notification.findByIdAndUpdate(notificationId, { read: true });
+        }
+        return res.json({ message: "Marked as read" });
+      }
+
+      // GET /api/notification?action=jobs-status&userId=xxx
+      if (method === "GET" && query.action === "jobs-status" && query.userId) {
+        const jobs = await Job.find({ userId: query.userId }).sort({ createdAt: -1 }).limit(30);
+        const logsCount = await NotificationLog.countDocuments({
+          userId: query.userId,
+          sentAt: { $gte: new Date(Date.now() - 60 * 60 * 1000) }
+        });
+        return res.json({ jobs, hourlyCount: logsCount });
+      }
+
+      // DELETE /api/notification?action=reset-jobs&userId=xxx
+      if (method === "DELETE" && query.action === "reset-jobs" && query.userId) {
+        await Job.deleteMany({ userId: query.userId });
+        await Notification.deleteMany({ userId: query.userId });
+        await NotificationLog.deleteMany({ userId: query.userId });
+        return res.json({ message: "Test data reset successfully" });
+      }
+
+      // POST /api/notification?action=trigger-realtime
+      if (method === "POST" && query.action === "trigger-realtime") {
+        const { userId, title, body, data } = req.body;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+        
+        const job = await Job.create({
+          type: "REALTIME_PUSH",
+          userId,
+          title: title || "Real-time Order Update 📦",
+          body: body || "Your Myntra order has been packed and is ready for dispatch!",
+          data: data || { type: "order_update", orderId: "12345" },
+          scheduledAt: new Date(),
+          status: "pending"
+        });
+
+        const runResult = await runQueueWorkerInternal();
+        return res.json({ message: "Real-time job triggered", job, runResult });
+      }
+
+      // POST /api/notification?action=trigger-scheduled
+      if (method === "POST" && query.action === "trigger-scheduled") {
+        const { userId, title, body, data, delayMinutes } = req.body;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+        const delay = delayMinutes ? parseInt(delayMinutes, 10) : 2;
+
+        const job = await Job.create({
+          type: "SCHEDULED_PUSH",
+          userId,
+          title: title || "Special Discount Waiting! 💃",
+          body: body || "Hurry! Items in your wishlist are at 40% discount for the next 1 hour.",
+          data: data || { type: "wishlist_sale" },
+          scheduledAt: new Date(Date.now() + delay * 60 * 1000),
+          status: "pending"
+        });
+
+        return res.json({ message: "Scheduled job enqueued", job });
+      }
+
+      // POST /api/notification?action=run-jobs
+      if (method === "POST" && query.action === "run-jobs") {
+        const runResult = await runQueueWorkerInternal();
+        return res.json(runResult);
+      }
+      
+      return res.status(400).json({ message: "Invalid notification action" });
     }
 
     return res.status(404).json({ message: "Route not found", path: path0, query });

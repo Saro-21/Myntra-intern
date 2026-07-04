@@ -41,6 +41,64 @@ function genrateRandomTracking() {
     ],
   };
 }
+router.post("/", async (req, res) => {
+  if (req.query.action === "create") {
+    const userid = req.query.userId;
+    if (!userid) {
+      return res.status(400).json({ message: "userId query parameter is required" });
+    }
+    try {
+      const bag = await Bag.find({ userId: userid }).populate("productId");
+      if (bag.length === 0) {
+        return res.status(400).json({ message: "No item in the bag" });
+      }
+      const orderitem = bag.map((item) => ({
+        productId: item.productId._id,
+        size: item.size,
+        price: item.productId.price,
+        quantity: item.quantity,
+      }));
+      const total = orderitem.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const newOrder = new Order({
+        userId: userid,
+        date: new Date().toLocaleDateString("en-IN"),
+        status: "Processing",
+        items: orderitem,
+        total: total,
+        shippingAddress: req.body.shippingAddress,
+        paymentMethod: req.body.paymentMethod,
+        tracking: genrateRandomTracking(),
+      });
+      await newOrder.save();
+      await Bag.deleteMany({ userId: userid });
+      return res.status(200).json(newOrder);
+    } catch (error) {
+      console.log(error);
+      return res.status(500).json({ message: "Something went wrong" });
+    }
+  }
+  return res.status(400).json({ message: "Invalid action" });
+});
+
+router.get("/", async (req, res) => {
+  const userid = req.query.userId;
+  if (!userid) {
+    return res.status(400).json({ message: "userId query parameter is required" });
+  }
+  try {
+    const order = await Order.find({ userId: userid }).populate(
+      "items.productId"
+    );
+    res.status(200).json(order);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
 router.post("/create/:userId", async (req, res) => {
   try {
     const userid = req.params.userId;
@@ -55,14 +113,14 @@ router.post("/create/:userId", async (req, res) => {
       quantity: item.quantity,
     }));
     const total = orderitem.reduce(
-      (sum, item) => sum + item.price + item.quantity,
+      (sum, item) => sum + item.price * item.quantity,
       0
     );
     const newOrder = new Order({
       userId: userid,
       date: new Date().toISOString(),
       status: "Processing",
-      item: orderitem,
+      items: orderitem,
       total: total,
       shippingAddress: req.body.shippingAddress,
       paymentMethod:req.body.paymentMethod,
@@ -70,7 +128,7 @@ router.post("/create/:userId", async (req, res) => {
     });
     await newOrder.save();
     await Bag.deleteMany({ userId: userid });
-    res.status(200).json({ message: "Order placed successfully" });
+    res.status(200).json(newOrder);
   } catch (error) {
     console.log(error);
     return res.status(500).json({ message: "Something went wrong" });

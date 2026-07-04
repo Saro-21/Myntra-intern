@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 import API_URL from "@/constants/Api";
+import { useTheme } from "@/context/ThemeContext";
 
 // Mock product data - in a real app, this would come from an API
 // const products = {
@@ -95,6 +96,10 @@ export default function ProductDetails() {
   const { addToRecentlyViewed } = useRecentlyViewed();
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
+  const { colors } = useTheme();
+
+  const styles = getStyles(colors);
+
   useEffect(() => {
     if (!id) return; // Guard: wait until Expo Router resolves the param
 
@@ -103,16 +108,26 @@ export default function ProductDetails() {
         setIsLoading(true);
         const res = await axios.get(`${API_URL}/product?id=${id}`);
         setproduct(res.data);
-        addToRecentlyViewed(res.data);
-      } catch (error) {
-        console.log("Product fetch error:", error);
-        setIsLoading(false);
+
+        // Always track for recently viewed (works for anonymous + logged-in users)
+        if (res.data) {
+          addToRecentlyViewed(res.data);
+        }
+
+        if (user && res.data) {
+          // Check if product is in wishlist
+          const wishlistRes = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
+          const inWishlist = wishlistRes.data.some((item: any) => item.productId?._id === res.data._id);
+          setiswishlist(inWishlist);
+        }
+      } catch (err) {
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
     fetchproduct();
-  }, [id]); // Re-run when id becomes available
+  }, [id, user]); // Re-run when id becomes available
 
   useEffect(() => {
     // Start auto-scroll
@@ -144,14 +159,22 @@ export default function ProductDetails() {
       router.push("/login");
       return;
     }
-
     try {
-      await axios.post(`${API_URL}/wishlist`, {
-        userId: user._id,
-        productId: id,
-      });
-      setiswishlist(true);
-      router.push("/wishlist");
+      if (iswishlist) {
+        // Find item in wishlist to delete it
+        const wishlistRes = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
+        const wishlistItem = wishlistRes.data.find((item: any) => item.productId?._id === product._id);
+        if (wishlistItem) {
+          await axios.delete(`${API_URL}/wishlist?itemId=${wishlistItem._id}`);
+          setiswishlist(false);
+        }
+      } else {
+        await axios.post(`${API_URL}/wishlist`, {
+          userId: user._id,
+          productId: product._id,
+        });
+        setiswishlist(true);
+      }
     } catch (error) {
       console.log(error);
     }
@@ -171,10 +194,11 @@ export default function ProductDetails() {
       setLoading(true);
       await axios.post(`${API_URL}/bag`, {
         userId: user._id,
-        productId: id,
+        productId: product._id,
         size: selectedSize,
         quantity: 1,
       });
+      alert("Added to bag!");
       router.push("/bag");
     } catch (error) {
       console.log(error);
@@ -199,7 +223,7 @@ export default function ProductDetails() {
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#ff3f6c" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -258,8 +282,8 @@ export default function ProductDetails() {
             >
               <Heart
                 size={24}
-                color={iswishlist ? "#ff3f6c" : "#ccc"}
-                fill={iswishlist ? "#ff3f6c" : "none"}
+                color={iswishlist ? colors.primary : colors.icon}
+                fill={iswishlist ? colors.primary : "none"}
               />
             </TouchableOpacity>
           </View>
@@ -305,7 +329,7 @@ export default function ProductDetails() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#ff3f6c" />
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
               <ShoppingBag size={20} color="#fff" />
@@ -318,139 +342,148 @@ export default function ProductDetails() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  carouselContainer: {
-    position: "relative",
-  },
-  productImage: {
-    height: 400,
-  },
-  pagination: {
-    position: "absolute",
-    bottom: 16,
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
-    marginHorizontal: 4,
-  },
-  paginationDotActive: {
-    backgroundColor: "#fff",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  content: {
-    padding: 20,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  brand: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 5,
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginBottom: 10,
-  },
-  wishlistButton: {
-    padding: 10,
-  },
-  priceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  price: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginRight: 10,
-  },
-  discount: {
-    fontSize: 16,
-    color: "#ff3f6c",
-  },
-  description: {
-    fontSize: 16,
-    color: "#666",
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  sizeSection: {
-    marginBottom: 20,
-  },
-  sizeTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginBottom: 10,
-  },
-  sizeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  sizeButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  selectedSize: {
-    borderColor: "#ff3f6c",
-    backgroundColor: "#fff4f4",
-  },
-  sizeText: {
-    fontSize: 16,
-    color: "#3e3e3e",
-  },
-  selectedSizeText: {
-    color: "#ff3f6c",
-  },
-  footer: {
-    padding: 15,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  addToBagButton: {
-    backgroundColor: "#ff3f6c",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 15,
-    borderRadius: 10,
-    gap: 10,
-  },
-  addToBagText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
+    },
+    carouselContainer: {
+      position: "relative",
+    },
+    productImage: {
+      height: 400,
+    },
+    pagination: {
+      position: "absolute",
+      bottom: 16,
+      flexDirection: "row",
+      width: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    paginationDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: "rgba(255, 255, 255, 0.5)",
+      marginHorizontal: 4,
+    },
+    paginationDotActive: {
+      backgroundColor: "#fff",
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    content: {
+      padding: 20,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    brand: {
+      fontSize: 16,
+      color: colors.subtext,
+      marginBottom: 5,
+    },
+    name: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 10,
+    },
+    wishlistButton: {
+      padding: 10,
+    },
+    priceContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 15,
+    },
+    price: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: colors.text,
+      marginRight: 10,
+    },
+    discount: {
+      fontSize: 16,
+      color: colors.primary,
+    },
+    description: {
+      fontSize: 16,
+      color: colors.subtext,
+      lineHeight: 24,
+      marginBottom: 20,
+    },
+    sizeSection: {
+      marginBottom: 20,
+    },
+    sizeTitle: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 10,
+    },
+    sizeGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+    sizeButton: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.card,
+    },
+    selectedSize: {
+      borderColor: colors.primary,
+      backgroundColor: colors.theme === 'myntra' ? colors.border : (colors.theme === 'dark' ? '#251c20' : '#fff4f4'),
+    },
+    sizeText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    selectedSizeText: {
+      color: colors.primary,
+      fontWeight: "bold",
+    },
+    footer: {
+      padding: 15,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    addToBagButton: {
+      backgroundColor: colors.primary,
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 15,
+      borderRadius: 10,
+      gap: 10,
+    },
+    addToBagText: {
+      color: "#fff",
+      fontSize: 16,
+      fontWeight: "bold",
+    },
+    emptyText: {
+      fontSize: 16,
+      color: colors.text,
+      textAlign: "center",
+      marginTop: 50,
+    },
+  });

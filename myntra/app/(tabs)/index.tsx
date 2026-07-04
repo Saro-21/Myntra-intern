@@ -96,6 +96,8 @@ const deals = [
   },
 ];
 
+import { useTheme } from "@/context/ThemeContext";
+
 export default function Home() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -103,6 +105,9 @@ export default function Home() {
   const [categories, setcategories] = useState<any>(null);
   const { user } = useAuth();
   const { recentlyViewed } = useRecentlyViewed();
+  const { colors } = useTheme();
+
+  const styles = getStyles(colors);
   
   const handleProductPress = (productId: string | number) => {
     router.push(`/product/${productId}`);
@@ -129,7 +134,7 @@ export default function Home() {
       <View style={styles.header}>
         <Text style={styles.logo}>MYNTRA</Text>
         <TouchableOpacity style={styles.searchButton}>
-          <Search size={24} color="#3e3e3e" />
+          <Search size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -145,7 +150,7 @@ export default function Home() {
           <Text style={styles.sectionTitle}>SHOP BY CATEGORY</Text>
           <TouchableOpacity style={styles.viewAll}>
             <Text style={styles.viewAllText}>View All</Text>
-            <ChevronRight size={20} color="#ff3f6c" />
+            <ChevronRight size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -156,7 +161,7 @@ export default function Home() {
           {isLoading ? (
             <ActivityIndicator
               size="large"
-              color="#ff3f6c"
+              color={colors.primary}
               style={styles.loader}
             />
           ) : !categories || categories.length === 0 ? (
@@ -201,7 +206,7 @@ export default function Home() {
             <Text style={styles.sectionTitle}>RECENTLY VIEWED</Text>
             <TouchableOpacity style={styles.viewAll} onPress={() => router.push("/recently-viewed")}>
               <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={20} color="#ff3f6c" />
+              <ChevronRight size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -243,7 +248,7 @@ export default function Home() {
           {isLoading ? (
             <ActivityIndicator
               size="large"
-              color="#ff3f6c"
+              color={colors.primary}
               style={styles.loader}
             />
           ) : !product || product.length === 0 ? (
@@ -257,9 +262,7 @@ export default function Home() {
                   onPress={() => handleProductPress(product._id)}
                 >
                   <Image
-                    source={{ uri: product.images[0
-                      
-                    ] }}
+                    source={{ uri: product.images[0] }}
                     style={styles.productImage}
                   />
                   <View style={styles.productInfo}>
@@ -280,208 +283,211 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-    paddingTop: 50,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  emptyText: {
-    textAlign: "center",
-    marginTop: 20,
-    fontSize: 16,
-    color: "#666",
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-  },
-  searchButton: {
-    padding: 8,
-  },
-  banner: {
-    width: "100%",
-    height: 200,
-    resizeMode: "cover",
-  },
-  section: {
-    padding: 15,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-  },
-  viewAll: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  viewAllText: {
-    color: "#ff3f6c",
-    marginRight: 5,
-  },
-  categoriesScroll: {
-    marginHorizontal: -15,
-  },
-  categoryCard: {
-    width: 100,
-    marginHorizontal: 8,
-  },
-  categoryImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  categoryName: {
-    textAlign: "center",
-    marginTop: 8,
-    fontSize: 14,
-    color: "#3e3e3e",
-  },
-  dealsScroll: {
-    marginHorizontal: -15,
-  },
-  dealCard: {
-    width: 280,
-    height: 150,
-    marginHorizontal: 8,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  dealImage: {
-    width: "100%",
-    height: "100%",
-  },
-  dealOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    padding: 15,
-  },
-  dealTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  productsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -8,
-  },
-  productCard: {
-    width: "48%",
-    marginHorizontal: "1%",
-    marginBottom: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  productImage: {
-    width: "100%",
-    height: 200,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  productInfo: {
-    padding: 10,
-  },
-  brandName: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 2,
-  },
-  productName: {
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  productPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginRight: 8,
-  },
-  discount: {
-    fontSize: 14,
-    color: "#ff3f6c",
-    fontWeight: "500",
-  },
-  loader: {
-    marginTop: 50,
-  },
-  recentlyViewedScroll: {
-    marginHorizontal: -15,
-    paddingLeft: 8,
-  },
-  recentlyViewedCard: {
-    width: 140,
-    marginHorizontal: 8,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    overflow: "hidden",
-    marginBottom: 5,
-  },
-  recentlyViewedImage: {
-    width: "100%",
-    height: 120,
-    resizeMode: "cover",
-  },
-  recentlyViewedInfo: {
-    padding: 8,
-  },
-  recentlyViewedBrand: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#666",
-    marginBottom: 2,
-  },
-  recentlyViewedName: {
-    fontSize: 13,
-    color: "#3e3e3e",
-    marginBottom: 4,
-  },
-  recentlyViewedPrice: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#3e3e3e",
-    marginRight: 6,
-  },
-  recentlyViewedDiscount: {
-    fontSize: 11,
-    color: "#ff3f6c",
-    fontWeight: "600",
-  },
-});
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 15,
+      paddingTop: 50,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    emptyText: {
+      textAlign: "center",
+      marginTop: 20,
+      fontSize: 16,
+      color: colors.subtext,
+    },
+    logo: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.primary,
+    },
+    searchButton: {
+      padding: 8,
+    },
+    banner: {
+      width: "100%",
+      height: 200,
+      resizeMode: "cover",
+    },
+    section: {
+      padding: 15,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 15,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    viewAll: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    viewAllText: {
+      color: colors.primary,
+      marginRight: 5,
+    },
+    categoriesScroll: {
+      marginHorizontal: -15,
+    },
+    categoryCard: {
+      width: 100,
+      marginHorizontal: 8,
+    },
+    categoryImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+    },
+    categoryName: {
+      textAlign: "center",
+      marginTop: 8,
+      fontSize: 14,
+      color: colors.text,
+    },
+    dealsScroll: {
+      marginHorizontal: -15,
+    },
+    dealCard: {
+      width: 280,
+      height: 150,
+      marginHorizontal: 8,
+      borderRadius: 10,
+      overflow: "hidden",
+    },
+    dealImage: {
+      width: "100%",
+      height: "100%",
+    },
+    dealOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      padding: 15,
+    },
+    dealTitle: {
+      color: "#fff",
+      fontSize: 18,
+      fontWeight: "bold",
+    },
+    productsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginHorizontal: -8,
+    },
+    productCard: {
+      width: "48%",
+      marginHorizontal: "1%",
+      marginBottom: 15,
+      backgroundColor: colors.card,
+      borderRadius: 10,
+      shadowColor: colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    productImage: {
+      width: "100%",
+      height: 200,
+      borderTopLeftRadius: 10,
+      borderTopRightRadius: 10,
+    },
+    productInfo: {
+      padding: 10,
+    },
+    brandName: {
+      fontSize: 14,
+      color: colors.subtext,
+      marginBottom: 2,
+    },
+    productName: {
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 5,
+    },
+    priceRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    productPrice: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: colors.text,
+      marginRight: 8,
+    },
+    discount: {
+      fontSize: 14,
+      color: colors.primary,
+      fontWeight: "500",
+    },
+    loader: {
+      marginTop: 50,
+    },
+    recentlyViewedScroll: {
+      marginHorizontal: -15,
+      paddingLeft: 8,
+    },
+    recentlyViewedCard: {
+      width: 140,
+      marginHorizontal: 8,
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+      overflow: "hidden",
+      marginBottom: 5,
+    },
+    recentlyViewedImage: {
+      width: "100%",
+      height: 120,
+      resizeMode: "cover",
+    },
+    recentlyViewedInfo: {
+      padding: 8,
+    },
+    recentlyViewedBrand: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: colors.subtext,
+      marginBottom: 2,
+    },
+    recentlyViewedName: {
+      fontSize: 13,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    recentlyViewedPrice: {
+      fontSize: 13,
+      fontWeight: "bold",
+      color: colors.text,
+      marginRight: 6,
+    },
+    recentlyViewedDiscount: {
+      fontSize: 11,
+      color: colors.primary,
+      fontWeight: "600",
+    },
+  });
+

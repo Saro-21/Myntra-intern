@@ -1,12 +1,20 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Chrome, Heart, Search, ShoppingBag, User } from 'lucide-react-native';
+import { useTheme } from '@/context/ThemeContext';
+
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#ff3f6c',
-        tabBarInactiveTintColor: '#3e3e3e',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.Inactive,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+        },
         headerShown: false,
       }}>
       <Tabs.Screen
