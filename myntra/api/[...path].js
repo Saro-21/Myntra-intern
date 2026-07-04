@@ -2,6 +2,24 @@ const mongoose = require("mongoose");
 const dns = require("dns");
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const PDFDocument = require("pdfkit");
+
+const JWT_SECRET = process.env.JWT_SECRET || "myntra_secret_key";
+
+// ─── Receipt Link Helpers ────────────────────────────────────────────────────
+function generateReceiptLink(host, transactionId) {
+  const expires = Date.now() + 15 * 60 * 1000;
+  const data = `${transactionId}:${expires}`;
+  const signature = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("hex");
+  return `https://${host}/api/transaction/receipt/${transactionId}?expires=${expires}&signature=${signature}`;
+}
+function verifyReceiptLink(transactionId, expires, signature) {
+  if (Date.now() > parseInt(expires, 10)) return false;
+  const data = `${transactionId}:${expires}`;
+  const expected = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("hex");
+  try { return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected)); } catch { return false; }
+}
 
 // ─── DB Connection (cached across warm invocations) ─────────────────────────
 let cached = global.__mongoCache || { conn: null, promise: null };
@@ -86,6 +104,36 @@ const NotificationLogSchema = new mongoose.Schema({
   sentAt: { type: Date, default: Date.now }
 });
 
+const TransactionSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null },
+    transactionId: { type: String, required: true, unique: true },
+    amount: { type: Number, required: true },
+    status: { type: String, enum: ["pending", "success", "failed", "refunded"], default: "pending" },
+    paymentMethod: { type: String, enum: ["card", "upi", "netbanking", "wallet", "cod"], default: "cod" },
+    idempotencyKey: { type: String, unique: true, sparse: true },
+    receiptUrl: { type: String, default: null }
+  },
+  { timestamps: true }
+);
+TransactionSchema.index({ userId: 1, createdAt: -1 });
+TransactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
+TransactionSchema.index({ userId: 1, paymentMethod: 1, createdAt: -1 });
+
+const AuditLogSchema = new mongoose.Schema(
+  {
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "Transaction", required: true },
+    action: { type: String, enum: ["created", "success", "failed", "refunded"], required: true },
+    details: { type: mongoose.Schema.Types.Mixed, default: {} },
+    actor: { type: String, default: "system" },
+    ipAddress: { type: String, default: null }
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+AuditLogSchema.index({ transactionId: 1 });
+AuditLogSchema.index({ createdAt: -1 });
+
 const Product        = mongoose.models.Product        || mongoose.model("Product", ProductSchema);
 const Category       = mongoose.models.Category       || mongoose.model("Category", CategorySchema);
 const User           = mongoose.models.User           || mongoose.model("User", UserSchema);
@@ -97,6 +145,8 @@ const PushToken       = mongoose.models.PushToken       || mongoose.model("PushT
 const Notification    = mongoose.models.Notification    || mongoose.model("Notification", NotificationSchema);
 const Job             = mongoose.models.Job             || mongoose.model("Job", JobSchema);
 const NotificationLog = mongoose.models.NotificationLog || mongoose.model("NotificationLog", NotificationLogSchema);
+const Transaction     = mongoose.models.Transaction     || mongoose.model("Transaction", TransactionSchema);
+const AuditLog        = mongoose.models.AuditLog        || mongoose.model("AuditLog", AuditLogSchema);
 
 // ─── CORS Helper ────────────────────────────────────────────────────────────
 function setCORS(res) {
@@ -583,6 +633,165 @@ module.exports = async (req, res) => {
       }
       
       return res.status(400).json({ message: "Invalid notification action" });
+    }
+
+    // ── TRANSACTION ───────────────────────────────────────────────────────────
+    // GET  /api/transaction?userId=xxx                          → paginated list
+    // GET  /api/transaction/receipt/:id?expires=&signature=     → signed PDF
+    // GET  /api/transaction/export?userId=xxx                   → streaming CSV
+    // POST /api/transaction/webhook                             → idempotent callback
+    if (path0 === "transaction") {
+      const sub = pathParts[1] || "";
+
+      // ── PDF Receipt (signed expiring link) ────────────────────────────────
+      if (sub === "receipt" && pathParts[2] && method === "GET") {
+        const txnId = pathParts[2];
+        const { expires, signature } = query;
+        if (!expires || !signature) {
+          return res.status(403).json({ message: "Forbidden: Signed link credentials missing." });
+        }
+        if (!verifyReceiptLink(txnId, expires, signature)) {
+          return res.status(403).json({ message: "Forbidden: Link expired or invalid signature." });
+        }
+        const txn = await Transaction.findById(txnId).populate("userId");
+        if (!txn) return res.status(404).json({ message: "Transaction not found" });
+
+        const doc = new PDFDocument({ margin: 50 });
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename="receipt_${txn.transactionId}.pdf"`);
+        doc.pipe(res);
+
+        doc.fillColor("#E7396A").rect(0, 0, 612, 30).fill();
+        doc.fillColor("#333333").fontSize(22).font("Helvetica-Bold")
+           .text("MYNTRA CLONE TRANSACTION RECEIPT", 50, 60);
+        doc.fontSize(10).font("Helvetica").fillColor("#777777")
+           .text(`Invoice Issued: ${new Date().toLocaleString("en-IN")}`, 50, 85);
+        doc.strokeColor("#E0E0E0").lineWidth(1).moveTo(50, 105).lineTo(562, 105).stroke();
+        doc.fillColor("#333333").fontSize(12).font("Helvetica-Bold").text("Billed To:", 50, 125);
+        doc.fontSize(10).font("Helvetica")
+           .text(`Customer: ${txn.userId?.fullName || "Guest"}`)
+           .text(`Email: ${txn.userId?.email || "N/A"}`);
+        doc.fontSize(12).font("Helvetica-Bold").text("Transaction Summary", 300, 125);
+        doc.fontSize(10).font("Helvetica")
+           .text(`Transaction ID: ${txn.transactionId}`, 300, 140)
+           .text(`Status: ${txn.status.toUpperCase()}`)
+           .text(`Payment Mode: ${txn.paymentMethod.toUpperCase()}`)
+           .text(`Date: ${txn.createdAt.toLocaleString("en-IN")}`);
+        doc.strokeColor("#E0E0E0").moveTo(50, 205).lineTo(562, 205).stroke();
+        doc.fontSize(12).font("Helvetica-Bold").text("Description", 50, 225).text("Amount (INR)", 450, 225, { align: "right" });
+        doc.strokeColor("#999999").moveTo(50, 240).lineTo(562, 240).stroke();
+        doc.fontSize(10).font("Helvetica")
+           .text("Online Retail Purchase", 50, 255)
+           .text(`INR ${txn.amount.toFixed(2)}`, 450, 255, { align: "right" });
+        doc.strokeColor("#E0E0E0").moveTo(50, 280).lineTo(562, 280).stroke();
+        doc.rect(350, 300, 212, 40).fillColor("#F9F9F9").fill().stroke();
+        doc.fillColor("#333333").fontSize(12).font("Helvetica-Bold")
+           .text("Total Paid:", 360, 314)
+           .text(`\u20B9${txn.amount.toFixed(2)}`, 470, 314, { align: "right" });
+        doc.fontSize(8).font("Helvetica-Oblique").fillColor("#999999")
+           .text("Computer generated invoice — no physical signature required.", 50, 700, { align: "center" });
+        doc.end();
+        return;
+      }
+
+      // ── Streaming CSV Export ──────────────────────────────────────────────
+      if (sub === "export" && method === "GET") {
+        const { userId, status, paymentMethod, startDate, endDate } = query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+        const filter = { userId };
+        if (status) filter.status = status;
+        if (paymentMethod) filter.paymentMethod = paymentMethod;
+        if (startDate || endDate) {
+          filter.createdAt = {};
+          if (startDate) filter.createdAt.$gte = new Date(startDate);
+          if (endDate) filter.createdAt.$lte = new Date(endDate);
+        }
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename="transactions_${userId}.csv"`);
+        res.write("Transaction ID,Amount,Status,Payment Method,Date,Receipt Link\n");
+        const host = req.headers.host;
+        const cur = Transaction.find(filter).sort({ createdAt: -1 }).cursor();
+        cur.on("data", (doc) => {
+          const row = `"${doc.transactionId}",${doc.amount},"${doc.status}","${doc.paymentMethod}","${doc.createdAt.toISOString()}","${generateReceiptLink(host, doc._id.toString())}"\n`;
+          res.write(row);
+        });
+        cur.on("end", () => res.end());
+        cur.on("error", () => res.status(500).end());
+        return;
+      }
+
+      // ── Idempotent Webhook Callback ───────────────────────────────────────
+      if (sub === "webhook" && method === "POST") {
+        const { idempotencyKey, transactionId, amount, status, paymentMethod, userId, orderId } = req.body;
+        if (!idempotencyKey || !transactionId) {
+          return res.status(400).json({ message: "idempotencyKey and transactionId are required" });
+        }
+        try {
+          const existing = await Transaction.findOne({ idempotencyKey });
+          if (existing) {
+            return res.json({ message: "Webhook already processed (Idempotent response)", transaction: existing });
+          }
+          let txn = await Transaction.findOne({ transactionId });
+          let action = "created";
+          if (txn) {
+            txn.status = status || txn.status;
+            txn.paymentMethod = paymentMethod || txn.paymentMethod;
+            txn.idempotencyKey = idempotencyKey;
+            await txn.save();
+            action = status || "updated";
+          } else {
+            txn = await Transaction.create({ userId, orderId: orderId || null, transactionId, amount, status: status || "success", paymentMethod: paymentMethod || "card", idempotencyKey });
+          }
+          const clientIp = req.headers["x-forwarded-for"] || "unknown";
+          await AuditLog.create({
+            transactionId: txn._id,
+            action: ["success", "failed", "refunded"].includes(action) ? action : "created",
+            details: { amount: txn.amount, paymentMethod: txn.paymentMethod, idempotencyKey },
+            actor: "system",
+            ipAddress: clientIp,
+          });
+          return res.json({ message: "Webhook processed successfully", transaction: txn });
+        } catch (err) {
+          if (err.code === 11000) {
+            const retry = await Transaction.findOne({ idempotencyKey });
+            if (retry) return res.json({ message: "Duplicate callback caught (Idempotent response)", transaction: retry });
+          }
+          throw err;
+        }
+      }
+
+      // ── List Transactions with Filtering + Cursor Pagination ──────────────
+      if (method === "GET") {
+        const { userId, status, paymentMethod, startDate, endDate, cursor, limit = "10" } = query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+        const queryLimit = parseInt(limit, 10);
+        const filter = { userId };
+        if (status) filter.status = status;
+        if (paymentMethod) filter.paymentMethod = paymentMethod;
+        if (startDate || endDate) {
+          filter.createdAt = {};
+          if (startDate) filter.createdAt.$gte = new Date(startDate);
+          if (endDate) filter.createdAt.$lte = new Date(endDate);
+        }
+        if (cursor) {
+          try {
+            const decodedDate = new Date(Buffer.from(cursor, "base64").toString("ascii"));
+            if (!isNaN(decodedDate.getTime())) {
+              if (!filter.createdAt) filter.createdAt = {};
+              filter.createdAt.$lt = decodedDate;
+            }
+          } catch { return res.status(400).json({ message: "Invalid cursor" }); }
+        }
+        const transactions = await Transaction.find(filter).sort({ createdAt: -1 }).limit(queryLimit + 1);
+        const hasNextPage = transactions.length > queryLimit;
+        const results = hasNextPage ? transactions.slice(0, queryLimit) : transactions;
+        const host = req.headers.host;
+        const formattedResults = results.map(t => { const o = t.toObject(); o.receiptUrl = generateReceiptLink(host, t._id.toString()); return o; });
+        const nextCursor = hasNextPage && results.length > 0
+          ? Buffer.from(results[results.length - 1].createdAt.toISOString()).toString("base64")
+          : null;
+        return res.json({ data: formattedResults, nextCursor, hasNextPage });
+      }
     }
 
     return res.status(404).json({ message: "Route not found", path: path0, query });
