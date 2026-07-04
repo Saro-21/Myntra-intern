@@ -10,6 +10,7 @@ const Bagroutes = require("./routes/Bagroutes");
 const Wishlistroutes = require("./routes/Wishlistroutes");
 const OrderRoutes = require("./routes/OrderRoutes");
 const RecentlyViewedroutes = require("./routes/RecentlyViewedroutes");
+const { router: notificationrouter, runQueueWorkerInternal } = require("./routes/Notificationroutes");
 const cors = require('cors');
 dotenv.config();
 const app = express();
@@ -28,6 +29,17 @@ app.use("/bag", Bagroutes);
 app.use("/wishlist", Wishlistroutes);
 app.use("/Order", OrderRoutes);
 app.use("/recently-viewed", RecentlyViewedroutes);
+app.use("/notification", notificationrouter);
+
+// Start background job queue processor (runs every 10 seconds)
+setInterval(async () => {
+  try {
+    await runQueueWorkerInternal();
+  } catch (err) {
+    console.error("Background worker interval run failed:", err);
+  }
+}, 10000);
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
