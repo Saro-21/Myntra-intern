@@ -12,6 +12,7 @@ const OrderRoutes = require("./routes/OrderRoutes");
 const RecentlyViewedroutes = require("./routes/RecentlyViewedroutes");
 const { router: notificationrouter, runQueueWorkerInternal } = require("./routes/Notificationroutes");
 const transactionrouter = require("./routes/Transactionroutes");
+const recommendationrouter = require("./routes/Recommendationroutes");
 const cors = require('cors');
 dotenv.config();
 const app = express();
@@ -32,6 +33,7 @@ app.use("/Order", OrderRoutes);
 app.use("/recently-viewed", RecentlyViewedroutes);
 app.use("/notification", notificationrouter);
 app.use("/transaction", transactionrouter);
+app.use("/recommendations", recommendationrouter);
 
 // Start background job queue processor (runs every 10 seconds)
 setInterval(async () => {

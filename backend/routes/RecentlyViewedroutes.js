@@ -20,14 +20,14 @@ router.post("/", async (req, res) => {
           { upsert: true }
         );
       }
-      const top20 = await RecentlyViewed.find({ userId })
-        .sort({ viewedAt: -1 }).limit(20).select("_id");
-      if (top20.length === 20) {
-        const top20Ids = top20.map(h => h._id);
-        await RecentlyViewed.deleteMany({ userId, _id: { $nin: top20Ids } });
+      const top50 = await RecentlyViewed.find({ userId })
+        .sort({ viewedAt: -1 }).limit(50).select("_id");
+      if (top50.length === 50) {
+        const top50Ids = top50.map(h => h._id);
+        await RecentlyViewed.deleteMany({ userId, _id: { $nin: top50Ids } });
       }
       const history = await RecentlyViewed.find({ userId })
-        .sort({ viewedAt: -1 }).limit(20).populate("productId");
+        .sort({ viewedAt: -1 }).limit(50).populate("productId");
       return res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
     } catch (err) {
       console.error("Error in sync:", err);
@@ -48,8 +48,8 @@ router.post("/", async (req, res) => {
     );
 
     const views = await RecentlyViewed.find({ userId }).sort({ viewedAt: -1 });
-    if (views.length > 20) {
-      const excessIds = views.slice(20).map(v => v._id);
+    if (views.length > 50) {
+      const excessIds = views.slice(50).map(v => v._id);
       await RecentlyViewed.deleteMany({ _id: { $in: excessIds } });
     }
 
@@ -73,7 +73,7 @@ router.get("/", async (req, res) => {
   try {
     const history = await RecentlyViewed.find({ userId })
       .sort({ viewedAt: -1 })
-      .limit(20)
+      .limit(50)
       .populate("productId");
     res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
   } catch (error) {
@@ -112,14 +112,14 @@ router.post("/sync", async (req, res) => {
         { upsert: true }
       );
     }
-    const top20 = await RecentlyViewed.find({ userId })
-      .sort({ viewedAt: -1 }).limit(20).select("_id");
-    if (top20.length === 20) {
-      const top20Ids = top20.map(h => h._id);
-      await RecentlyViewed.deleteMany({ userId, _id: { $nin: top20Ids } });
+    const top50 = await RecentlyViewed.find({ userId })
+      .sort({ viewedAt: -1 }).limit(50).select("_id");
+    if (top50.length === 50) {
+      const top50Ids = top50.map(h => h._id);
+      await RecentlyViewed.deleteMany({ userId, _id: { $nin: top50Ids } });
     }
     const history = await RecentlyViewed.find({ userId })
-      .sort({ viewedAt: -1 }).limit(20).populate("productId");
+      .sort({ viewedAt: -1 }).limit(50).populate("productId");
     res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
   } catch (error) {
     console.error("Error syncing recently viewed products:", error);

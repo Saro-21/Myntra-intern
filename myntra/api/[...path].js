@@ -649,16 +649,16 @@ module.exports = async (req, res) => {
             { upsert: true }
           );
         }
-        // Enforce 20-item limit: delete anything beyond top 20 by viewedAt
-        const top20 = await RecentlyViewed.find({ userId })
-          .sort({ viewedAt: -1 }).limit(20).select("_id");
-        if (top20.length === 20) {
-          const top20Ids = top20.map(h => h._id);
-          await RecentlyViewed.deleteMany({ userId, _id: { $nin: top20Ids } });
+        // Enforce 50-item limit: delete anything beyond top 50 by viewedAt
+        const top50 = await RecentlyViewed.find({ userId })
+          .sort({ viewedAt: -1 }).limit(50).select("_id");
+        if (top50.length === 50) {
+          const top50Ids = top50.map(h => h._id);
+          await RecentlyViewed.deleteMany({ userId, _id: { $nin: top50Ids } });
         }
         // Return full history with populated product and viewedAt
         const history = await RecentlyViewed.find({ userId })
-          .sort({ viewedAt: -1 }).limit(20).populate("productId");
+          .sort({ viewedAt: -1 }).limit(50).populate("productId");
         return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
       if (method === "POST") {
@@ -675,7 +675,7 @@ module.exports = async (req, res) => {
       }
       if (method === "GET" && query.userId) {
         const history = await RecentlyViewed.find({ userId: query.userId })
-          .sort({ viewedAt: -1 }).limit(20).populate("productId");
+          .sort({ viewedAt: -1 }).limit(50).populate("productId");
         return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
     }
@@ -943,6 +943,94 @@ module.exports = async (req, res) => {
           ? Buffer.from(results[results.length - 1].createdAt.toISOString()).toString("base64")
           : null;
         return res.json({ data: formattedResults, nextCursor, hasNextPage });
+      }
+    }
+
+    // ── RECOMMENDATIONS ───────────────────────────────────────────────────────
+    // GET /api/recommendations?userId=xxx&limit=10  → personalized list
+    if (path0 === "recommendations") {
+      if (method === "GET") {
+        const { userId, limit = "10" } = query;
+        const targetLimit = parseInt(limit, 10);
+        let userProductIds = [];
+        let excludeProductIds = [];
+
+        if (userId) {
+          const [wishlist, history, orders] = await Promise.all([
+            Wishlist.find({ userId }).select("productId").lean(),
+            RecentlyViewed.find({ userId }).select("productId").lean(),
+            Order.find({ userId }).select("items.productId").lean(),
+          ]);
+
+          const wishlistIds = wishlist.map(w => w.productId?.toString()).filter(Boolean);
+          const historyIds = history.map(h => h.productId?.toString()).filter(Boolean);
+          const orderIds = orders.flatMap(o => o.items.map(i => i.productId?.toString())).filter(Boolean);
+
+          userProductIds = Array.from(new Set([...wishlistIds, ...historyIds, ...orderIds]));
+          excludeProductIds = [...userProductIds];
+        }
+
+        let recommendations = [];
+
+        if (userProductIds.length > 0) {
+          const categories = await Category.find({
+            productId: { $in: userProductIds }
+          }).select("_id productId").lean();
+
+          if (categories.length > 0) {
+            const candidateProductIds = Array.from(
+              new Set(categories.flatMap(c => c.productId.map(p => p.toString())))
+            ).filter(pid => !excludeProductIds.includes(pid));
+
+            if (candidateProductIds.length > 0) {
+              recommendations = await Product.find({
+                _id: { $in: candidateProductIds },
+                inStock: true
+              }).limit(targetLimit);
+            }
+          }
+        }
+
+        if (recommendations.length < targetLimit) {
+          const remainingLimit = targetLimit - recommendations.length;
+          const alreadyRecommended = recommendations.map(r => r._id.toString());
+          const allExclusions = [...excludeProductIds, ...alreadyRecommended];
+
+          const popularAgg = await RecentlyViewed.aggregate([
+            { $match: { productId: { $nin: allExclusions.map(id => new mongoose.Types.ObjectId(id)) } } },
+            { $group: { _id: "$productId", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: remainingLimit }
+          ]);
+
+          let fallbackProducts = [];
+          if (popularAgg.length > 0) {
+            const popularIds = popularAgg.map(p => p._id);
+            fallbackProducts = await Product.find({
+              _id: { $in: popularIds },
+              inStock: true
+            });
+          }
+
+          if (recommendations.length + fallbackProducts.length < targetLimit) {
+            const currentCount = recommendations.length + fallbackProducts.length;
+            const finalExclusions = [...allExclusions, ...fallbackProducts.map(p => p._id.toString())];
+            const finalNeeded = targetLimit - currentCount;
+
+            const newestProducts = await Product.find({
+              _id: { $nin: finalExclusions },
+              inStock: true
+            })
+              .sort({ createdAt: -1 })
+              .limit(finalNeeded);
+
+            fallbackProducts = [...fallbackProducts, ...newestProducts];
+          }
+
+          recommendations = [...recommendations, ...fallbackProducts];
+        }
+
+        return res.json(recommendations.slice(0, targetLimit));
       }
     }
 
