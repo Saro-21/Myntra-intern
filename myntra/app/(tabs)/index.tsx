@@ -696,12 +696,12 @@ const getStyles = (colors: any, theme: string) =>
     productsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 12,
+      gap: 10,
     },
     productCard: {
-      width: (width - 44) / 2,
+      width: (width - 42) / 3,
       backgroundColor: colors.card,
-      borderRadius: 16,
+      borderRadius: 12,
       overflow: "hidden",
       borderWidth: 1,
       borderColor: colors.border,
@@ -716,7 +716,7 @@ const getStyles = (colors: any, theme: string) =>
     },
     productImage: {
       width: "100%",
-      height: 200,
+      height: 140,
     },
     productDiscountBadge: {
       position: "absolute",
@@ -744,28 +744,28 @@ const getStyles = (colors: any, theme: string) =>
       alignItems: "center",
     },
     productInfo: {
-      padding: 10,
+      padding: 7,
     },
     brandName: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: "700",
       color: colors.subtext,
       textTransform: "uppercase",
-      letterSpacing: 0.5,
-      marginBottom: 2,
+      letterSpacing: 0.3,
+      marginBottom: 1,
     },
     productName: {
-      fontSize: 13,
+      fontSize: 11,
       color: colors.text,
-      lineHeight: 18,
-      marginBottom: 6,
+      lineHeight: 15,
+      marginBottom: 4,
     },
     priceRow: {
       flexDirection: "row",
       alignItems: "center",
     },
     productPrice: {
-      fontSize: 15,
+      fontSize: 13,
       fontWeight: "800",
       color: colors.text,
     },
