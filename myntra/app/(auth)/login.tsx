@@ -18,7 +18,6 @@ import React, { useEffect } from "react";
 import { Eye, EyeOff, Mail, Lock, ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
-import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
@@ -142,7 +141,7 @@ export default function Login() {
             },
           ]}
         >
-          <BlurView intensity={Platform.OS === "ios" ? 40 : 80} tint="dark" style={styles.glassCard}>
+          <View style={styles.glassCard}>
             <Text style={styles.cardTitle}>Login</Text>
 
             {/* Error Message Box */}
@@ -234,7 +233,7 @@ export default function Login() {
                 <Text style={styles.redirectLink}>Register</Text>
               </TouchableOpacity>
             </View>
-          </BlurView>
+          </View>
         </Animated.View>
 
         {/* SSL stamp */}
@@ -341,6 +340,7 @@ const styles = StyleSheet.create({
   glassCard: {
     paddingHorizontal: 24,
     paddingVertical: 36,
+    backgroundColor: "rgba(18, 25, 50, 0.82)",
   },
   cardTitle: {
     fontSize: 30,

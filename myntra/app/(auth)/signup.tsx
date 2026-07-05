@@ -18,7 +18,6 @@ import { Eye, EyeOff, User, Mail, Lock, CheckCircle2, ArrowRight, ShieldCheck } 
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
-import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width, height } = Dimensions.get("window");
@@ -159,7 +158,7 @@ export default function SignupScreen() {
             },
           ]}
         >
-          <BlurView intensity={Platform.OS === "ios" ? 40 : 80} tint="dark" style={styles.glassCard}>
+          <View style={styles.glassCard}>
             <Text style={styles.cardTitle}>Register</Text>
 
             {apiError ? (
@@ -286,7 +285,7 @@ export default function SignupScreen() {
                 <Text style={styles.redirectLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
-          </BlurView>
+          </View>
         </Animated.View>
 
         {/* SSL stamp */}
@@ -392,6 +391,7 @@ const styles = StyleSheet.create({
   glassCard: {
     paddingHorizontal: 24,
     paddingVertical: 32,
+    backgroundColor: "rgba(18, 25, 50, 0.82)",
   },
   cardTitle: {
     fontSize: 30,
