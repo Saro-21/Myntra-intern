@@ -32,32 +32,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user/login`, {
-      email,
-      password,
-    });
-
-    const data = res.data.user;
-    if (!data || !data.fullName) {
-      throw new Error(res.data.message || "Login failed");
+    try {
+      const res = await axios.post(`${API_URL}/user/login`, { email, password });
+      const data = res.data.user;
+      if (!data || !data.fullName) {
+        throw new Error(res.data.message || "Login failed");
+      }
+      await saveUserData(data._id, data.fullName, data.email);
+      setUser({ _id: data._id, name: data.fullName, email: data.email });
+      setIsAuthenticated(true);
+    } catch (err: any) {
+      // Surface the server's human-readable message, not the raw axios string
+      const serverMsg = err?.response?.data?.message;
+      throw new Error(serverMsg || err?.message || "Login failed. Please try again.");
     }
-    await saveUserData(data._id, data.fullName, data.email);
-    setUser({ _id: data._id, name: data.fullName, email: data.email });
-    setIsAuthenticated(true);
   };
   const Signup = async (fullName: string, email: string, password: string) => {
-    const res = await axios.post(`${API_URL}/user/signup`, {
-      fullName,
-      email,
-      password,
-    });
-    const data = res.data.user;
-    if (!data || !data.fullName) {
-      throw new Error(res.data.message || "Signup failed");
+    try {
+      const res = await axios.post(`${API_URL}/user/signup`, { fullName, email, password });
+      const data = res.data.user;
+      if (!data || !data.fullName) {
+        throw new Error(res.data.message || "Signup failed");
+      }
+      await saveUserData(data._id, data.fullName, data.email);
+      setUser({ _id: data._id, name: data.fullName, email: data.email });
+      setIsAuthenticated(true);
+    } catch (err: any) {
+      // Surface the server's human-readable message, not the raw axios string
+      const serverMsg = err?.response?.data?.message;
+      throw new Error(serverMsg || err?.message || "Registration failed. Please try again.");
     }
-    await saveUserData(data._id, data.fullName, data.email);
-    setUser({ _id: data._id, name: data.fullName, email: data.email });
-    setIsAuthenticated(true);
   };
   const logout = async () => {
     await clearUserData();

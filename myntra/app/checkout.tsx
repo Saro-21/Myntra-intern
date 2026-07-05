@@ -2,7 +2,7 @@ import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useRouter } from "expo-router";
-import { CreditCard, MapPin, Truck } from "lucide-react-native";
+import { CreditCard, MapPin, Truck, Smartphone } from "lucide-react-native";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -15,16 +15,19 @@ import {
 } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 
+type PaymentMethod = "Card" | "UPI";
+
 export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [bagTotal, setBagTotal] = useState<number | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Card");
   const router = useRouter();
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  // Form state — shipping
+  // Shipping form state
   const [fullName, setFullName] = useState("");
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
@@ -32,6 +35,14 @@ export default function Checkout() {
   const [state, setState] = useState("");
   const [postal, setPostal] = useState("");
   const [country, setCountry] = useState("India");
+
+  // Card form state
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+
+  // UPI form state
+  const [upiId, setUpiId] = useState("");
 
   // Fetch actual bag total on mount
   useEffect(() => {
@@ -63,13 +74,27 @@ export default function Checkout() {
       setOrderError("Please fill in all required shipping fields.");
       return;
     }
-    const shippingAddress = `${fullName.trim()}, ${address1.trim()}${address2 ? ", " + address2.trim() : ""}, ${city.trim()}, ${state.trim()} ${postal.trim()}, ${country.trim()}`;
+    if (paymentMethod === "UPI") {
+      if (!upiId.trim() || !upiId.includes("@")) {
+        setOrderError("Please enter a valid UPI ID (e.g. name@upi).");
+        return;
+      }
+    }
+    if (paymentMethod === "Card" && !cardNumber.trim()) {
+      setOrderError("Please enter your card number.");
+      return;
+    }
+
+    const shippingAddress = `${fullName.trim()}, ${address1.trim()}${
+      address2 ? ", " + address2.trim() : ""
+    }, ${city.trim()}, ${state.trim()} ${postal.trim()}, ${country.trim()}`;
+
     try {
       setLoading(true);
       setOrderError("");
       await axios.post(`${API_URL}/order?action=create&userId=${user._id}`, {
         shippingAddress,
-        paymentMethod: "Card",
+        paymentMethod,
       });
       router.push("/orders");
     } catch (error: any) {
@@ -87,11 +112,14 @@ export default function Checkout() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Checkout</Text>
       </View>
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
         {/* Shipping Address */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MapPin size={24} color={colors.primary} />
+            <View style={styles.sectionIconBg}>
+              <MapPin size={20} color="#fff" />
+            </View>
             <Text style={styles.sectionTitle}>Shipping Address</Text>
           </View>
           <View style={styles.form}>
@@ -152,40 +180,140 @@ export default function Checkout() {
           </View>
         </View>
 
-        {/* Payment Section */}
+        {/* Payment Method Selector */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <CreditCard size={24} color={colors.primary} />
+            <View style={[styles.sectionIconBg, { backgroundColor: "#7c3aed" }]}>
+              <CreditCard size={20} color="#fff" />
+            </View>
             <Text style={styles.sectionTitle}>Payment Method</Text>
           </View>
-          <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="Card Number"
-              placeholderTextColor={colors.subtext}
-              keyboardType="numeric"
-            />
-            <View style={styles.row}>
-              <TextInput
-                style={[styles.input, styles.halfInput]}
-                placeholder="Expiry Date"
-                placeholderTextColor={colors.subtext}
+
+          {/* Toggle Tabs */}
+          <View style={styles.paymentTabs}>
+            <TouchableOpacity
+              style={[
+                styles.paymentTab,
+                paymentMethod === "Card" && styles.paymentTabActive,
+              ]}
+              onPress={() => setPaymentMethod("Card")}
+              activeOpacity={0.8}
+            >
+              <CreditCard
+                size={18}
+                color={paymentMethod === "Card" ? "#fff" : colors.subtext}
               />
+              <Text
+                style={[
+                  styles.paymentTabText,
+                  paymentMethod === "Card" && styles.paymentTabTextActive,
+                ]}
+              >
+                Card
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.paymentTab,
+                paymentMethod === "UPI" && styles.paymentTabActive,
+              ]}
+              onPress={() => setPaymentMethod("UPI")}
+              activeOpacity={0.8}
+            >
+              <Smartphone
+                size={18}
+                color={paymentMethod === "UPI" ? "#fff" : colors.subtext}
+              />
+              <Text
+                style={[
+                  styles.paymentTabText,
+                  paymentMethod === "UPI" && styles.paymentTabTextActive,
+                ]}
+              >
+                UPI
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Card Details */}
+          {paymentMethod === "Card" && (
+            <View style={styles.form}>
               <TextInput
-                style={[styles.input, styles.halfInput]}
-                placeholder="CVV"
+                style={styles.input}
+                placeholder="Card Number"
                 placeholderTextColor={colors.subtext}
                 keyboardType="numeric"
-                secureTextEntry
+                maxLength={19}
+                value={cardNumber}
+                onChangeText={(v) => {
+                  const digits = v.replace(/\D/g, "").slice(0, 16);
+                  setCardNumber(digits.replace(/(.{4})/g, "$1 ").trim());
+                }}
               />
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, styles.halfInput]}
+                  placeholder="MM / YY"
+                  placeholderTextColor={colors.subtext}
+                  maxLength={5}
+                  value={expiry}
+                  onChangeText={(v) => {
+                    const digits = v.replace(/\D/g, "").slice(0, 4);
+                    setExpiry(digits.length > 2 ? digits.slice(0, 2) + "/" + digits.slice(2) : digits);
+                  }}
+                />
+                <TextInput
+                  style={[styles.input, styles.halfInput]}
+                  placeholder="CVV"
+                  placeholderTextColor={colors.subtext}
+                  keyboardType="numeric"
+                  secureTextEntry
+                  maxLength={4}
+                  value={cvv}
+                  onChangeText={setCvv}
+                />
+              </View>
             </View>
-          </View>
+          )}
+
+          {/* UPI Details */}
+          {paymentMethod === "UPI" && (
+            <View style={styles.form}>
+              <View style={styles.upiBox}>
+                <Text style={styles.upiLabel}>Supported UPI Apps</Text>
+                <View style={styles.upiAppsRow}>
+                  {["GPay", "PhonePe", "Paytm", "BHIM", "Amazon Pay"].map((app) => (
+                    <View key={app} style={styles.upiAppChip}>
+                      <Text style={styles.upiAppText}>{app}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter UPI ID (e.g. name@upi) *"
+                placeholderTextColor={colors.subtext}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={upiId}
+                onChangeText={setUpiId}
+              />
+              <View style={styles.upiInfoBox}>
+                <Text style={styles.upiInfoText}>
+                  💡 You will receive a payment request on your UPI app after placing the order.
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Order Summary */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Truck size={24} color={colors.primary} />
+            <View style={[styles.sectionIconBg, { backgroundColor: "#059669" }]}>
+              <Truck size={20} color="#fff" />
+            </View>
             <Text style={styles.sectionTitle}>Order Summary</Text>
           </View>
           <View style={styles.summary}>
@@ -196,10 +324,18 @@ export default function Checkout() {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Shipping</Text>
-              <Text style={[styles.summaryValue, { color: "#2ecc71" }]}>FREE</Text>
+              <Text style={styles.summaryLabel}>Delivery</Text>
+              <Text style={[styles.summaryValue, { color: "#22c55e", fontWeight: "700" }]}>
+                FREE
+              </Text>
             </View>
-            <View style={[styles.summaryRow, styles.total]}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Payment via</Text>
+              <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                {paymentMethod === "UPI" ? `UPI • ${upiId || "—"}` : "Debit / Credit Card"}
+              </Text>
+            </View>
+            <View style={[styles.summaryRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>
                 {bagTotal === null ? "—" : `₹${bagTotal}`}
@@ -215,7 +351,7 @@ export default function Checkout() {
           </View>
         ) : null}
 
-        <View style={{ height: 8 }} />
+        <View style={{ height: 16 }} />
       </ScrollView>
 
       <View style={styles.footer}>
@@ -228,7 +364,9 @@ export default function Checkout() {
           {loading ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.placeOrderButtonText}>PLACE ORDER</Text>
+            <Text style={styles.placeOrderButtonText}>
+              PLACE ORDER · {bagTotal === null ? "" : `₹${bagTotal}`}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -238,10 +376,7 @@ export default function Checkout() {
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
     header: {
       padding: 15,
       paddingTop: 50,
@@ -249,115 +384,144 @@ const getStyles = (colors: any) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: colors.text,
-    },
-    content: {
-      flex: 1,
-      padding: 15,
-    },
+    headerTitle: { fontSize: 26, fontWeight: "900", color: colors.text, letterSpacing: 0.5 },
+    content: { flex: 1, padding: 15 },
     section: {
       marginBottom: 20,
       backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+    sectionIconBg: {
+      width: 36,
+      height: 36,
       borderRadius: 10,
-      padding: 15,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 3.84,
-      elevation: 5,
-    },
-    sectionHeader: {
-      flexDirection: "row",
+      backgroundColor: colors.primary,
+      justifyContent: "center",
       alignItems: "center",
-      marginBottom: 15,
+      marginRight: 12,
     },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-      marginLeft: 10,
-    },
-    form: {
-      gap: 10,
-    },
+    sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+    form: { gap: 10 },
     input: {
       backgroundColor: colors.inputBackground,
-      padding: 15,
-      borderRadius: 10,
-      fontSize: 16,
-      marginBottom: 10,
+      padding: 14,
+      borderRadius: 12,
+      fontSize: 15,
+      marginBottom: 8,
       color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    row: {
+    row: { flexDirection: "row", justifyContent: "space-between" },
+    halfInput: { width: "48%" },
+    // Payment tabs
+    paymentTabs: {
       flexDirection: "row",
-      justifyContent: "space-between",
+      backgroundColor: colors.inputBackground,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    halfInput: {
-      width: "48%",
+    paymentTab: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      borderRadius: 10,
+      gap: 6,
     },
-    summary: {
-      gap: 10,
+    paymentTabActive: {
+      backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.35,
+      shadowRadius: 6,
+      elevation: 4,
     },
+    paymentTabText: { fontSize: 14, fontWeight: "700", color: colors.subtext },
+    paymentTabTextActive: { color: "#fff" },
+    // UPI
+    upiBox: {
+      backgroundColor: colors.inputBackground,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    upiLabel: { fontSize: 12, color: colors.subtext, fontWeight: "600", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+    upiAppsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    upiAppChip: {
+      backgroundColor: `${colors.primary}22`,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: `${colors.primary}44`,
+    },
+    upiAppText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+    upiInfoBox: {
+      backgroundColor: "rgba(34,197,94,0.08)",
+      borderRadius: 10,
+      padding: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: "#22c55e",
+    },
+    upiInfoText: { color: "#22c55e", fontSize: 12, fontWeight: "600", lineHeight: 18 },
+    // Summary
+    summary: { gap: 10 },
     summaryRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      paddingVertical: 5,
+      paddingVertical: 4,
     },
-    summaryLabel: {
-      fontSize: 16,
-      color: colors.subtext,
-    },
-    summaryValue: {
-      fontSize: 16,
-      color: colors.text,
-    },
-    total: {
+    summaryLabel: { fontSize: 15, color: colors.subtext },
+    summaryValue: { fontSize: 15, color: colors.text, fontWeight: "600" },
+    totalRow: {
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      marginTop: 10,
-      paddingTop: 10,
+      marginTop: 8,
+      paddingTop: 12,
     },
-    totalLabel: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-    },
-    totalValue: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.primary,
-    },
+    totalLabel: { fontSize: 18, fontWeight: "900", color: colors.text },
+    totalValue: { fontSize: 18, fontWeight: "900", color: colors.primary },
     errorBox: {
-      backgroundColor: "rgba(255, 77, 109, 0.12)",
+      backgroundColor: "rgba(255,77,109,0.10)",
       borderLeftWidth: 3,
       borderLeftColor: "#ff4d6d",
-      borderRadius: 8,
+      borderRadius: 10,
       padding: 12,
       marginBottom: 12,
     },
-    errorText: {
-      color: "#ff4d6d",
-      fontSize: 13,
-      fontWeight: "600",
-    },
+    errorText: { color: "#ff4d6d", fontSize: 13, fontWeight: "700" },
     footer: {
-      padding: 15,
+      padding: 16,
       backgroundColor: colors.card,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
     placeOrderButton: {
       backgroundColor: colors.primary,
-      padding: 15,
-      borderRadius: 10,
+      padding: 16,
+      borderRadius: 14,
       alignItems: "center",
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 10,
+      elevation: 6,
     },
-    placeOrderButtonText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "bold",
-    },
+    placeOrderButtonText: { color: "#fff", fontSize: 16, fontWeight: "900", letterSpacing: 0.5 },
   });
