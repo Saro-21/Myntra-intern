@@ -571,14 +571,16 @@ const getStyles = (colors: any, theme: string) =>
       gap: 12,
     },
     categoryCard: {
-      width: 88,
+      width: 108,
       alignItems: "center",
     },
     categoryImageWrap: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+      width: 100,
+      height: 100,
+      borderRadius: 50,
       overflow: "hidden",
+      borderWidth: 2,
+      borderColor: colors.border,
     },
     categoryImage: {
       width: "100%",
@@ -595,10 +597,11 @@ const getStyles = (colors: any, theme: string) =>
     categoryName: {
       textAlign: "center",
       marginTop: 8,
-      fontSize: 12,
+      fontSize: 13,
       color: colors.text,
-      fontWeight: "600",
+      fontWeight: "700",
     },
+
     // Deals
     dealsScroll: {
       gap: 12,
@@ -731,8 +734,9 @@ const getStyles = (colors: any, theme: string) =>
     },
     productImage: {
       width: "100%",
-      height: 140,
+      height: 180,
     },
+
     productDiscountBadge: {
       position: "absolute",
       top: 8,
