@@ -84,14 +84,20 @@ export default function Home() {
   const bannerRef = useRef<FlatList>(null);
   const bannerScrollX = useRef(new Animated.Value(0)).current;
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      const next = (activeBanner + 1) % bannerSlides.length;
-      setActiveBanner(next);
-      bannerRef.current?.scrollToIndex({ index: next, animated: true });
+    intervalRef.current = setInterval(() => {
+      setActiveBanner((prev) => {
+        const next = (prev + 1) % bannerSlides.length;
+        bannerRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
     }, 3500);
-    return () => clearInterval(timer);
-  }, [activeBanner]);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []); // ← empty deps: created once, no memory leak
 
   useEffect(() => {
     const fetchData = async () => {
@@ -459,7 +465,10 @@ const getStyles = (colors: any, theme: string) =>
     },
     bannerOverlay: {
       position: "absolute",
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: "rgba(0,0,0,0.35)",
     },
     bannerContent: {
@@ -577,7 +586,10 @@ const getStyles = (colors: any, theme: string) =>
     },
     categoryOverlay: {
       position: "absolute",
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: "rgba(0,0,0,0.05)",
     },
     categoryName: {
@@ -605,7 +617,10 @@ const getStyles = (colors: any, theme: string) =>
     },
     dealOverlay: {
       position: "absolute",
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: "rgba(0,0,0,0.38)",
     },
     dealBadge: {

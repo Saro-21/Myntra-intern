@@ -18,7 +18,12 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: '*',
+  origin: [
+    "https://myntra-pearl.vercel.app",
+    "http://localhost:8081",
+    "http://localhost:19006",
+    /\.vercel\.app$/, // Allow all Vercel preview deployments
+  ],
   credentials: true,
 }));
 app.get("/", (req, res) => {

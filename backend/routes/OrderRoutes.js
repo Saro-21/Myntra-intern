@@ -48,11 +48,14 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "userId query parameter is required" });
     }
     try {
-      const bag = await Bag.find({ userId: userid }).populate("productId");
+      // Only active cart items (not saved-for-later)
+      const bag = await Bag.find({ userId: userid, savedForLater: false }).populate("productId");
       if (bag.length === 0) {
         return res.status(400).json({ message: "No item in the bag" });
       }
-      const orderitem = bag.map((item) => ({
+      // Guard against deleted products
+      const validBag = bag.filter(item => item.productId != null);
+      const orderitem = validBag.map((item) => ({
         productId: item.productId._id,
         size: item.size,
         price: item.productId.price,
@@ -73,10 +76,10 @@ router.post("/", async (req, res) => {
         tracking: genrateRandomTracking(),
       });
       await newOrder.save();
-      await Bag.deleteMany({ userId: userid });
+      await Bag.deleteMany({ userId: userid, savedForLater: false });
       return res.status(200).json(newOrder);
     } catch (error) {
-      console.log(error);
+      console.error(error);
       return res.status(500).json({ message: "Something went wrong" });
     }
   }
@@ -102,11 +105,14 @@ router.get("/", async (req, res) => {
 router.post("/create/:userId", async (req, res) => {
   try {
     const userid = req.params.userId;
-    const bag = await Bag.find({ userId: userid }).populate("productId");
+    // Only active cart items (not saved-for-later)
+    const bag = await Bag.find({ userId: userid, savedForLater: false }).populate("productId");
     if (bag.length === 0) {
       return res.status(400).json({ message: "No item in the bag" });
     }
-    const orderitem = bag.map((item) => ({
+    // Guard against deleted products
+    const validBag = bag.filter(item => item.productId != null);
+    const orderitem = validBag.map((item) => ({
       productId: item.productId._id,
       size: item.size,
       price: item.productId.price,
@@ -127,10 +133,10 @@ router.post("/create/:userId", async (req, res) => {
       tracking: genrateRandomTracking(),
     });
     await newOrder.save();
-    await Bag.deleteMany({ userId: userid });
+    await Bag.deleteMany({ userId: userid, savedForLater: false });
     res.status(200).json(newOrder);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 });
