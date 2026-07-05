@@ -122,9 +122,9 @@ export default function SignupScreen() {
       style={styles.root}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Background image of shopping woman */}
+      {/* Background image of brick wall */}
       <Image
-        source={require("@/assets/images/login-bg.jpg")}
+        source={require("@/assets/images/brick-wall.jpg")}
         style={styles.backgroundImage}
         resizeMode="cover"
       />
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     height: "100%",
-    backgroundColor: "rgba(11, 15, 28, 0.86)",
+    backgroundColor: "rgba(11, 15, 28, 0.70)",
   },
   // Spotlight Lamp
   lampContainer: {
