@@ -28,7 +28,6 @@ interface AuthScreenProps {
 export default function AuthScreen({ initialMode = "login" }: AuthScreenProps) {
   const { login, Signup } = useAuth();
   const router = useRouter();
-  const { colors } = useTheme();
 
   // Mode state: true = login, false = signup
   const [isLogin, setIsLogin] = useState(initialMode === "login");
