@@ -360,27 +360,49 @@ module.exports = async (req, res) => {
     }
 
     // ── USER ──────────────────────────────────────────────────────────────
-    // POST /api/user?action=login   → login
-    // POST /api/user?action=signup  → signup
+    // POST /api/user/login   → login
+    // POST /api/user/signup  → signup
     if (path0 === "user" && method === "POST") {
       const subPath = pathParts[1] || "";
+
+      // ── LOGIN ───────────────────────────────────────────────────────────
       if (query.action === "login" || subPath === "login") {
         const { email, password } = req.body;
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ message: "User not found" });
+        if (!email || !email.trim()) return res.status(400).json({ message: "Email is required" });
+        if (!password) return res.status(400).json({ message: "Password is required" });
+
+        const user = await User.findOne({ email: email.trim().toLowerCase() });
+        if (!user) return res.status(404).json({ message: "No account found with this email" });
+
         const ok = await bcrypt.compare(password, user.password);
-        if (!ok) return res.status(401).json({ message: "Invalid password" });
-        return res.json({ user });
+        if (!ok) return res.status(401).json({ message: "Incorrect password" });
+
+        // Strip the hashed password before sending the response
+        const { password: _pw, ...userData } = user.toObject();
+        return res.json({ user: userData });
       }
+
+      // ── SIGNUP ──────────────────────────────────────────────────────────
       if (query.action === "signup" || subPath === "signup") {
         const { fullName, email, password } = req.body;
-        const existing = await User.findOne({ email });
-        if (existing) return res.status(400).json({ message: "Email already in use" });
+        if (!fullName || !fullName.trim()) return res.status(400).json({ message: "Full name is required" });
+        if (!email || !email.trim()) return res.status(400).json({ message: "Email is required" });
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) return res.status(400).json({ message: "Invalid email format" });
+        if (!password || password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+
+        const existing = await User.findOne({ email: email.trim().toLowerCase() });
+        if (existing) return res.status(409).json({ message: "An account with this email already exists" });
+
         const hashed = await bcrypt.hash(password, 10);
-        const user = await User.create({ fullName, email, password: hashed });
-        return res.json({ user });
+        const user = await User.create({ fullName: fullName.trim(), email: email.trim().toLowerCase(), password: hashed });
+
+        // Strip the hashed password before sending the response
+        const { password: _pw2, ...userData } = user.toObject();
+        return res.status(201).json({ user: userData });
       }
     }
+
 
     // ── BAG ───────────────────────────────────────────────────────────────
     // POST   /api/bag                  → add item to bag (with price snapshot)
