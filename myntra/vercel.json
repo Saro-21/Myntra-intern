@@ -12,6 +12,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://web-developement-intern.onrender.com/:path*"
+    },
     { "source": "/product/:id",      "destination": "/index.html" },
     { "source": "/bag",              "destination": "/index.html" },
     { "source": "/wishlist",         "destination": "/index.html" },
