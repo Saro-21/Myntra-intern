@@ -3,8 +3,10 @@ services:
     name: myntra-backend
     env: node
     plan: free
+    rootDir: backend
     buildCommand: npm install
     startCommand: node server.js
+    healthCheckPath: /
     envVars:
       - key: MONGO_URI
         sync: false
