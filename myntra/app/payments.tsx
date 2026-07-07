@@ -52,15 +52,39 @@ export default function Payments() {
     if (!user) return;
     try {
       setIsLoading(true);
-      const res = await axios.get(`${API_URL}/transaction?userId=${user._id}`);
-      // The API returns { data: Transaction[], nextCursor: string, hasNextPage: boolean }
-      if (res.data && Array.isArray(res.data.data)) {
-        setTransactions(res.data.data);
-      } else if (Array.isArray(res.data)) {
-        setTransactions(res.data);
+
+      // 1. Fetch real transaction records
+      let txns: Transaction[] = [];
+      try {
+        const res = await axios.get(`${API_URL}/transaction?userId=${user._id}`);
+        if (res.data && Array.isArray(res.data.data)) {
+          txns = res.data.data;
+        } else if (Array.isArray(res.data)) {
+          txns = res.data;
+        }
+      } catch (err) {
+        console.log("Error fetching transactions:", err);
       }
-    } catch (err) {
-      console.log("Error fetching transactions:", err);
+
+      // 2. Fallback: synthesize transactions from orders if none found
+      if (txns.length === 0) {
+        try {
+          const ordRes = await axios.get(`${API_URL}/order?userId=${user._id}`);
+          const orders: any[] = Array.isArray(ordRes.data) ? ordRes.data : [];
+          txns = orders.map((o: any) => ({
+            _id: o._id,
+            transactionId: "ORD-" + (o._id as string).slice(-8).toUpperCase(),
+            amount: o.total || 0,
+            status: "success" as const,
+            paymentMethod: (o.paymentMethod || "card").toLowerCase(),
+            createdAt: o.createdAt || o.date || new Date().toISOString(),
+          }));
+        } catch (ordErr) {
+          console.log("Error fetching orders as fallback:", ordErr);
+        }
+      }
+
+      setTransactions(txns);
     } finally {
       setIsLoading(false);
     }

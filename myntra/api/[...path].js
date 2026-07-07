@@ -641,6 +641,8 @@ module.exports = async (req, res) => {
             timeline: [
               { status: "Order placed", location: "Warehouse", timestamp: new Date().toISOString() }
             ]
+          }
+        });
         await Bag.deleteMany({ userId: query.userId, savedForLater: false });
 
         // Automatically log successful transaction for order
