@@ -235,6 +235,7 @@ export default function Home() {
               <TouchableOpacity
                 key={cat._id}
                 style={styles.categoryCard}
+                className="hover-grow"
                 onPress={() =>
                   router.push({ pathname: "/categories", params: { categoryId: cat._id } })
                 }
@@ -265,7 +266,7 @@ export default function Home() {
           contentContainerStyle={styles.dealsScroll}
         >
           {deals.map((deal) => (
-            <TouchableOpacity key={deal.id} style={styles.dealCard} activeOpacity={0.9}>
+            <TouchableOpacity key={deal.id} style={styles.dealCard} className="hover-grow" activeOpacity={0.9}>
               <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
               <View style={styles.dealOverlay} />
               <View style={styles.dealBadge}>
@@ -305,6 +306,7 @@ export default function Home() {
               <TouchableOpacity
                 key={item.productId}
                 style={styles.recentCard}
+                className="hover-grow"
                 onPress={() => handleProductPress(item.productId)}
                 activeOpacity={0.9}
               >
@@ -343,6 +345,7 @@ export default function Home() {
               <TouchableOpacity
                 key={product._id}
                 style={styles.productCard}
+                className="hover-grow"
                 onPress={() => handleProductPress(product._id)}
                 activeOpacity={0.9}
               >
