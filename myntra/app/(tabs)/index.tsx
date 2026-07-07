@@ -97,47 +97,16 @@ export default function Home() {
   const webBannerRef = useRef<any>(null); // div ref for web
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeBannerRef = useRef(0); // shadow ref so interval closure has latest value
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-
-  useEffect(() => {
-    activeBannerRef.current = activeBanner;
-  }, [activeBanner]);
-
-  useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      const next = (activeBannerRef.current + 1) % bannerSlides.length;
-      setActiveBanner(next);
-      if (Platform.OS === "web") {
-        // Smooth CSS scroll on web
-        const el = webBannerRef.current;
-        if (el) {
-          el.scrollTo({ left: next * bannerWidth, behavior: "smooth" });
-        }
-      } else {
-        try {
-          bannerFlatListRef.current?.scrollToIndex({ index: next, animated: true });
-        } catch (_) {}
-      }
-    }, 3500);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [bannerWidth]);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const recUrl = user 
-          ? `${API_URL}/recommendations?userId=${user._id}&limit=10`
-          : `${API_URL}/recommendations?limit=10`;
-        const [catRes, prodRes, recRes] = await Promise.all([
+        const [catRes, prodRes] = await Promise.all([
           axios.get(`${API_URL}/category`),
           axios.get(`${API_URL}/product`),
-          axios.get(recUrl).catch(() => ({ data: [] })),
         ]);
         setCategories(Array.isArray(catRes.data) ? catRes.data : []);
         setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
-        setRecommendations(Array.isArray(recRes.data) ? recRes.data : []);
       } catch (error) {
         console.log(error);
       } finally {
@@ -145,7 +114,7 @@ export default function Home() {
       }
     };
     fetchData();
-  }, [user]);
+  }, []);
 
   const handleProductPress = (productId: string | number) => {
     router.push(`/product/${productId}`);
@@ -452,49 +421,6 @@ export default function Home() {
                 activeOpacity={0.9}
               >
                 <Image source={{ uri: item.images[0] }} style={styles.recentImage} />
-                <View style={styles.recentInfo}>
-                  <Text style={styles.recentBrand} numberOfLines={1}>{item.brand}</Text>
-                  <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.recentPrice}>₹{item.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* You May Also Like (Personalized Recommendations) */}
-      {recommendations && recommendations.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>YOU MAY ALSO LIKE</Text>
-              <Text style={styles.sectionSubtitle}>
-                {user ? "Personalized recommendations for you" : "Trending popular styles"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.viewAllBtn}
-              onPress={() => router.push("/categories")}
-            >
-              <Text style={styles.viewAllText}>See All</Text>
-              <ChevronRight size={16} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recentScroll}
-          >
-            {recommendations.map((item: any) => (
-              <TouchableOpacity
-                key={item._id}
-                style={styles.recentCard}
-                className={isWeb ? "hover-grow" : undefined}
-                onPress={() => handleProductPress(item._id)}
-                activeOpacity={0.9}
-              >
-                <Image source={{ uri: item.images?.[0] }} style={styles.recentImage} />
                 <View style={styles.recentInfo}>
                   <Text style={styles.recentBrand} numberOfLines={1}>{item.brand}</Text>
                   <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>

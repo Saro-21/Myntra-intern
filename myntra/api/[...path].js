@@ -609,23 +609,37 @@ module.exports = async (req, res) => {
     if (path0 === "order" || path0 === "Order") {
       if (method === "POST" && query.action === "create" && query.userId) {
         const { shippingAddress, paymentMethod } = req.body;
-        const bagItems = await Bag.find({ userId: query.userId }).populate("productId");
-        const total = bagItems.reduce((sum, i) => sum + (i.productId?.price || 0) * (i.quantity || 1), 0);
+        const bagItems = await Bag.find({ userId: query.userId, savedForLater: false, isDiscontinued: false }).populate("productId");
+        if (bagItems.length === 0) {
+          return res.status(400).json({ message: "No active items in the bag to checkout." });
+        }
+        const validBag = bagItems.filter(i => i.productId != null);
+        const total = validBag.reduce((sum, i) => sum + (i.productId.price || 0) * (i.quantity || 1), 0);
         const order = await Order.create({
           userId: query.userId,
           date: new Date().toLocaleDateString("en-IN"),
           status: "Processing",
           shippingAddress,
           paymentMethod,
-          items: bagItems.map((i) => ({
+          items: validBag.map((i) => ({
             productId: i.productId._id,
             size: i.size,
             price: i.productId.price,
             quantity: i.quantity,
           })),
           total,
+          tracking: {
+            number: "TRK" + Math.floor(Math.random() * 10000000),
+            carrier: "Delhivery",
+            estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            currentLocation: "Warehouse",
+            status: "Shipped",
+            timeline: [
+              { status: "Order placed", location: "Warehouse", timestamp: new Date().toISOString() }
+            ]
+          }
         });
-        await Bag.deleteMany({ userId: query.userId });
+        await Bag.deleteMany({ userId: query.userId, savedForLater: false });
 
         // Clean up pending cart abandonment jobs and send real-time order update notification
         try {

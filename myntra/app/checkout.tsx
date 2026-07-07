@@ -44,30 +44,36 @@ export default function Checkout() {
   // UPI form state
   const [upiId, setUpiId] = useState("");
 
-  // Fetch actual bag total on mount
+  // Validation report state
+  const [validationReport, setValidationReport] = useState<any>(null);
+  const [isValidating, setIsValidating] = useState(true);
+
+  // Run pre-checkout checks (validate stock, price drift, discontinued items)
   useEffect(() => {
     if (!user) return;
+    setIsValidating(true);
     axios
-      .get(`${API_URL}/bag?userId=${user._id}`)
+      .get(`${API_URL}/bag/validate-checkout?userId=${user._id}`)
       .then((res) => {
-        const data = res.data;
-        if (Array.isArray(data)) {
-          const t = data.reduce(
-            (sum: number, item: any) =>
-              sum + (item.productId?.price || 0) * (item.quantity || 1),
-            0
-          );
-          setBagTotal(t);
-        } else {
-          setBagTotal(data.total || 0);
-        }
+        setValidationReport(res.data);
+        setBagTotal(res.data.total || 0);
       })
-      .catch(() => setBagTotal(0));
+      .catch((err) => {
+        console.error("Cart validation failed:", err);
+        setBagTotal(0);
+      })
+      .finally(() => {
+        setIsValidating(false);
+      });
   }, [user]);
 
   const handleplaceorder = async () => {
     if (!user) {
       router.push("/login");
+      return;
+    }
+    if (validationReport && !validationReport.valid) {
+      setOrderError("Cannot place order. Please resolve the out of stock items in your cart first.");
       return;
     }
     if (!fullName.trim() || !address1.trim() || !city.trim() || !postal.trim()) {
@@ -113,6 +119,38 @@ export default function Checkout() {
         <Text style={styles.headerTitle}>Checkout</Text>
       </View>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+        {isValidating ? (
+          <View style={{ padding: 20, alignItems: "center" }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ color: colors.subtext, marginTop: 8, fontSize: 13 }}>Validating cart stock & pricing...</Text>
+          </View>
+        ) : (
+          <>
+            {/* Validation Errors */}
+            {validationReport && validationReport.errors && validationReport.errors.length > 0 && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.bannerTitle}>Out of Stock Items Found</Text>
+                {validationReport.errors.map((err: any, idx: number) => (
+                  <Text key={idx} style={styles.bannerMessage}>• {err.message}</Text>
+                ))}
+                <TouchableOpacity style={styles.fixCartBtn} onPress={() => router.push("/bag")}>
+                  <Text style={styles.fixCartText}>Return to Bag & Fix</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Validation Warnings */}
+            {validationReport && validationReport.warnings && validationReport.warnings.length > 0 && (
+              <View style={styles.warningBanner}>
+                <Text style={[styles.bannerTitle, { color: "#b45309" }]}>Important Cart Updates</Text>
+                {validationReport.warnings.map((warn: any, idx: number) => (
+                  <Text key={idx} style={[styles.bannerMessage, { color: "#b45309" }]}>• {warn.message}</Text>
+                ))}
+              </View>
+            )}
+          </>
+        )}
 
         {/* Shipping Address */}
         <View style={styles.section}>
@@ -506,6 +544,54 @@ const getStyles = (colors: any) =>
       marginBottom: 12,
     },
     errorText: { color: "#ff4d6d", fontSize: 13, fontWeight: "700" },
+    errorBanner: {
+      backgroundColor: "rgba(239, 68, 68, 0.08)",
+      borderColor: "rgba(239, 68, 68, 0.2)",
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 16,
+      margin: 16,
+      marginBottom: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: "#ef4444",
+    },
+    warningBanner: {
+      backgroundColor: "rgba(245, 158, 11, 0.08)",
+      borderColor: "rgba(245, 158, 11, 0.2)",
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 16,
+      margin: 16,
+      marginBottom: 8,
+      borderLeftWidth: 4,
+      borderLeftColor: "#f59e0b",
+    },
+    bannerTitle: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: "#ef4444",
+      marginBottom: 6,
+      letterSpacing: 0.5,
+    },
+    bannerMessage: {
+      fontSize: 12,
+      color: "#b91c1c",
+      lineHeight: 18,
+      fontWeight: "600",
+    },
+    fixCartBtn: {
+      backgroundColor: "#ef4444",
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignSelf: "flex-start",
+      marginTop: 10,
+    },
+    fixCartText: {
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: "700",
+    },
     footer: {
       padding: 16,
       backgroundColor: colors.card,
