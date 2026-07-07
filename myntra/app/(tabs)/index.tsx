@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -18,8 +18,6 @@ import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useTheme } from "@/context/ThemeContext";
 import { Animated } from "react-native";
-
-const { width } = Dimensions.get("window");
 
 const bannerSlides = [
   {
@@ -71,13 +69,14 @@ const deals = [
 
 export default function Home() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const { user } = useAuth();
   const { recentlyViewed } = useRecentlyViewed();
   const { colors, theme } = useTheme();
-  const styles = getStyles(colors, theme);
+  const styles = getStyles(colors, theme, width);
 
   // Banner auto-scroll
   const [activeBanner, setActiveBanner] = useState(0);
@@ -123,7 +122,7 @@ export default function Home() {
   };
 
   const renderBanner = ({ item }: { item: typeof bannerSlides[0] }) => (
-    <View style={styles.bannerSlide}>
+    <View style={[styles.bannerSlide, { width }]}>
       <Image source={{ uri: item.uri }} style={styles.bannerImage} resizeMode="cover" />
       <View style={styles.bannerOverlay} />
       <View style={styles.bannerContent}>
@@ -185,8 +184,10 @@ export default function Home() {
             { useNativeDriver: false }
           )}
           onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
-            setActiveBanner(idx);
+            if (width > 0) {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+              setActiveBanner(idx);
+            }
           }}
           getItemLayout={(_, index) => ({
             length: width,
@@ -378,7 +379,7 @@ export default function Home() {
   );
 }
 
-const getStyles = (colors: any, theme: string) =>
+const getStyles = (colors: any, theme: string, width: number) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -455,7 +456,7 @@ const getStyles = (colors: any, theme: string) =>
       marginBottom: 4,
     },
     bannerSlide: {
-      width,
+      width: width > 0 ? width : "100%" as any,
       height: 210,
       position: "relative",
     },
@@ -717,7 +718,7 @@ const getStyles = (colors: any, theme: string) =>
       gap: 10,
     },
     productCard: {
-      width: (width - 42) / 3,
+      width: width > 100 ? (width - 42) / 3 : 110,
       backgroundColor: colors.card,
       borderRadius: 12,
       overflow: "hidden",
