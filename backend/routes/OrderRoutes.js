@@ -1,6 +1,7 @@
 const express = require("express");
 const Bag = require("../models/Bag");
 const Order = require("../models/Order");
+const Transaction = require("../models/Transaction");
 const router = express.Router();
 const mongoose = require("mongoose");
 
@@ -74,9 +75,24 @@ router.post("/", async (req, res) => {
         shippingAddress: req.body.shippingAddress,
         paymentMethod: req.body.paymentMethod,
         tracking: genrateRandomTracking(),
-      });
       await newOrder.save();
       await Bag.deleteMany({ userId: userid, savedForLater: false });
+
+      // Automatically log successful transaction for order
+      try {
+        await Transaction.create({
+          userId: userid,
+          orderId: newOrder._id,
+          transactionId: "TXN" + Math.floor(100000 + Math.random() * 900000),
+          amount: total,
+          status: "success",
+          paymentMethod: (req.body.paymentMethod || "card").toLowerCase(),
+          idempotencyKey: "idem_" + newOrder._id.toString()
+        });
+      } catch (txErr) {
+        console.error("Failed to log transaction:", txErr.message);
+      }
+
       return res.status(200).json(newOrder);
     } catch (error) {
       console.error(error);

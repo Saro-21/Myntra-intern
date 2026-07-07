@@ -641,9 +641,22 @@ module.exports = async (req, res) => {
             timeline: [
               { status: "Order placed", location: "Warehouse", timestamp: new Date().toISOString() }
             ]
-          }
-        });
         await Bag.deleteMany({ userId: query.userId, savedForLater: false });
+
+        // Automatically log successful transaction for order
+        try {
+          await Transaction.create({
+            userId: query.userId,
+            orderId: order._id,
+            transactionId: "TXN" + Math.floor(100000 + Math.random() * 900000),
+            amount: total,
+            status: "success",
+            paymentMethod: (paymentMethod || "card").toLowerCase(),
+            idempotencyKey: "idem_" + order._id.toString()
+          });
+        } catch (txErr) {
+          console.error("Failed to log transaction:", txErr.message);
+        }
 
         // Clean up pending cart abandonment jobs and send real-time order update notification
         try {
