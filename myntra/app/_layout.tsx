@@ -17,53 +17,87 @@ import { RecentlyViewedProvider } from "@/context/RecentlyViewedContext";
 import { ThemeProvider as AppThemeProvider, useTheme } from "@/context/ThemeContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 
-// Global web-only stylesheet to enable god-level designs
+// Global web-only stylesheet — god-level design system
 const webStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
-  * {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  *, *::before, *::after {
+    box-sizing: border-box;
   }
 
+  * {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Hide scrollbars system-wide for native app feel */
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* Smooth scroll */
+  html { scroll-behavior: smooth; }
+
+  /* Prevent text selection on interactive elements */
+  button, [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Optimise image rendering */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+
+  /* Card lift on hover — snappy spring feel */
   .hover-grow {
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.22s ease,
+                filter 0.18s ease !important;
+    will-change: transform;
   }
   .hover-grow:hover {
-    transform: translateY(-6px) scale(1.025) !important;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08) !important;
+    transform: translateY(-8px) scale(1.018) !important;
+    box-shadow: 0 24px 40px -8px rgba(0, 0, 0, 0.18), 0 8px 16px -4px rgba(0, 0, 0, 0.1) !important;
+    filter: brightness(1.02) !important;
+    z-index: 10;
+    position: relative;
   }
 
   .hover-slide-right {
-    transition: all 0.25s ease !important;
+    transition: transform 0.2s ease !important;
   }
   .hover-slide-right:hover {
-    transform: translateX(6px) !important;
+    transform: translateX(5px) !important;
   }
 
+  /* Glowing CTA buttons */
   .hover-glow-button {
-    transition: all 0.3s ease !important;
+    transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease !important;
+    will-change: transform;
   }
   .hover-glow-button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 0 20px rgba(255, 0, 85, 0.45) !important;
-    filter: brightness(1.05) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 0 28px rgba(255, 0, 85, 0.55) !important;
+    filter: brightness(1.08) !important;
   }
 
-  /* Custom glassmorphism cards */
+  /* Glassmorphism utilities */
   .glass-card {
     background: rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07) !important;
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07) !important;
   }
 
   .dark-glass-card {
-    background: rgba(21, 21, 33, 0.75) !important;
-    backdrop-filter: blur(25px) !important;
-    -webkit-backdrop-filter: blur(25px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4) !important;
+    background: rgba(21, 21, 33, 0.72) !important;
+    backdrop-filter: blur(28px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
   }
 `;
 

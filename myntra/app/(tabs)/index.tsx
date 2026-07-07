@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   FlatList,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, ChevronRight, Heart, Bell, Sparkles } from "lucide-react-native";
+import { Search, ChevronRight, Heart, Bell, Sparkles, TrendingUp } from "lucide-react-native";
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
@@ -22,23 +23,23 @@ import { Animated } from "react-native";
 const bannerSlides = [
   {
     id: 1,
-    uri: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&auto=format&fit=crop",
+    uri: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1200&auto=format&fit=crop",
     tag: "NEW ARRIVALS",
-    title: "Summer\nCollection",
-    cta: "Shop Now",
+    title: "Summer\nCollection 2025",
+    cta: "Explore Now",
   },
   {
     id: 2,
-    uri: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=800&auto=format&fit=crop",
-    tag: "SALE",
-    title: "Up to 70%\nOff",
-    cta: "Explore Deals",
+    uri: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&auto=format&fit=crop",
+    tag: "FLASH SALE",
+    title: "Up to 70%\nOff Today Only",
+    cta: "Shop Sale",
   },
   {
     id: 3,
-    uri: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=800&auto=format&fit=crop",
+    uri: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&auto=format&fit=crop",
     tag: "TRENDING",
-    title: "Premium\nBrands",
+    title: "Style Your\nEvery Moment",
     cta: "Discover",
   },
 ];
@@ -48,24 +49,26 @@ const deals = [
     id: 1,
     title: "Under ₹599",
     subtitle: "Best Prices",
-    image: "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=500&auto=format&fit=crop",
     badge: "HOT",
+    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&auto=format&fit=crop",
   },
   {
     id: 2,
     title: "40-70% Off",
     subtitle: "Limited Time",
-    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=500&auto=format&fit=crop",
     badge: "SALE",
+    image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&auto=format&fit=crop",
   },
   {
     id: 3,
     title: "New In",
     subtitle: "Just Dropped",
-    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=500&auto=format&fit=crop",
     badge: "NEW",
+    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&auto=format&fit=crop",
   },
 ];
+
+const isWeb = Platform.OS === "web";
 
 export default function Home() {
   const router = useRouter();
@@ -76,13 +79,20 @@ export default function Home() {
   const { user } = useAuth();
   const { recentlyViewed } = useRecentlyViewed();
   const { colors, theme } = useTheme();
-  const styles = getStyles(colors, theme, width);
+
+  // Responsive layout
+  const isWide = width > 1100;
+  const isMid = width > 700;
+  const productCols = isWide ? 5 : isMid ? 4 : 3;
+  const dealCols = isWide ? 4 : isMid ? 3 : 3;
+  const contentMaxWidth = isWide ? 1400 : "100%";
+
+  const styles = getStyles(colors, theme, width, productCols);
 
   // Banner auto-scroll
   const [activeBanner, setActiveBanner] = useState(0);
   const bannerRef = useRef<FlatList>(null);
   const bannerScrollX = useRef(new Animated.Value(0)).current;
-
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -96,7 +106,7 @@ export default function Home() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []); // ← empty deps: created once, no memory leak
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -139,37 +149,49 @@ export default function Home() {
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ alignSelf: "center", width: "100%" }}
+    >
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.logo}>MYNTRA</Text>
-          <Text style={styles.greeting}>
-            {user ? `Hi, ${user.name?.split(" ")[0]} 👋` : "Discover Fashion"}
-          </Text>
+        <View style={styles.headerInner}>
+          <View>
+            <Text style={styles.logo}>MYNTRA</Text>
+            <Text style={styles.greeting}>
+              {user ? `Hi, ${user.name?.split(" ")[0]} 👋` : "Discover Fashion"}
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => router.push("/notifications")}
+            >
+              <Bell size={20} color={colors.text} />
+              <View style={styles.notifDot} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => router.push("/wishlist")}
+            >
+              <Heart size={20} color={colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/notifications")}>
-            <Bell size={22} color={colors.text} />
-            <View style={styles.notifDot} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.push("/wishlist")}>
-            <Heart size={22} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+
+        {/* Search Bar */}
+        <TouchableOpacity
+          style={styles.searchBar}
+          onPress={() => router.push("/categories")}
+          activeOpacity={0.7}
+        >
+          <Search size={17} color={colors.subtext} />
+          <Text style={styles.searchPlaceholder}>Search brands, products & more...</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
-      <TouchableOpacity
-        style={styles.searchBar}
-        onPress={() => router.push("/categories")}
-        activeOpacity={0.7}
-      >
-        <Search size={18} color={colors.subtext} />
-        <Text style={styles.searchPlaceholder}>Search brands, products & more...</Text>
-      </TouchableOpacity>
-
-      {/* Promo Banner Carousel */}
+      {/* Banner Carousel */}
       <View style={styles.bannerContainer}>
         <FlatList
           ref={bannerRef}
@@ -206,6 +228,36 @@ export default function Home() {
         </View>
       </View>
 
+      {/* Deals Row */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>TODAY'S DEALS</Text>
+            <Text style={styles.sectionSubtitle}>Limited time offers</Text>
+          </View>
+        </View>
+        <View style={styles.dealsRow}>
+          {deals.map((deal) => (
+            <TouchableOpacity
+              key={deal.id}
+              style={styles.dealCard}
+              className={isWeb ? "hover-grow" : undefined}
+              activeOpacity={0.9}
+            >
+              <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
+              <View style={styles.dealOverlay} />
+              <View style={styles.dealBadge}>
+                <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+              </View>
+              <View style={styles.dealContent}>
+                <Text style={styles.dealTitle}>{deal.title}</Text>
+                <Text style={styles.dealSubtitle}>{deal.subtitle}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {/* Categories */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -227,57 +279,28 @@ export default function Home() {
           contentContainerStyle={styles.categoriesScroll}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20, marginLeft: 20 }} />
           ) : categories.length === 0 ? (
-            <Text style={styles.emptyText}>No categories yet</Text>
+            <Text style={[styles.emptyText, { marginLeft: 16 }]}>No categories yet</Text>
           ) : (
             categories.map((cat: any) => (
               <TouchableOpacity
                 key={cat._id}
                 style={styles.categoryCard}
-                className="hover-grow"
+                className={isWeb ? "hover-grow" : undefined}
                 onPress={() =>
                   router.push({ pathname: "/categories", params: { categoryId: cat._id } })
                 }
                 activeOpacity={0.85}
               >
                 <View style={styles.categoryImageWrap}>
-                  <Image source={{ uri: cat.image }} style={styles.categoryImage} />
+                  <Image source={{ uri: cat.image }} style={styles.categoryImage} resizeMode="cover" />
                   <View style={styles.categoryOverlay} />
                 </View>
                 <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
               </TouchableOpacity>
             ))
           )}
-        </ScrollView>
-      </View>
-
-      {/* Deals */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>TODAY'S DEALS</Text>
-            <Text style={styles.sectionSubtitle}>Limited time offers</Text>
-          </View>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dealsScroll}
-        >
-          {deals.map((deal) => (
-            <TouchableOpacity key={deal.id} style={styles.dealCard} className="hover-grow" activeOpacity={0.9}>
-              <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
-              <View style={styles.dealOverlay} />
-              <View style={styles.dealBadge}>
-                <Text style={styles.dealBadgeText}>{deal.badge}</Text>
-              </View>
-              <View style={styles.dealContent}>
-                <Text style={styles.dealTitle}>{deal.title}</Text>
-                <Text style={styles.dealSubtitle}>{deal.subtitle}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
         </ScrollView>
       </View>
 
@@ -306,7 +329,7 @@ export default function Home() {
               <TouchableOpacity
                 key={item.productId}
                 style={styles.recentCard}
-                className="hover-grow"
+                className={isWeb ? "hover-grow" : undefined}
                 onPress={() => handleProductPress(item.productId)}
                 activeOpacity={0.9}
               >
@@ -322,7 +345,7 @@ export default function Home() {
         </View>
       )}
 
-      {/* Trending Now */}
+      {/* Trending Now — Full Width Responsive Grid */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View>
@@ -330,7 +353,7 @@ export default function Home() {
             <Text style={styles.sectionSubtitle}>What everyone's wearing</Text>
           </View>
           <View style={styles.trendingBadge}>
-            <Sparkles size={12} color={colors.primary} />
+            <TrendingUp size={12} color={colors.primary} />
             <Text style={styles.trendingBadgeText}>Live</Text>
           </View>
         </View>
@@ -345,7 +368,7 @@ export default function Home() {
               <TouchableOpacity
                 key={product._id}
                 style={styles.productCard}
-                className="hover-grow"
+                className={isWeb ? "hover-grow" : undefined}
                 onPress={() => handleProductPress(product._id)}
                 activeOpacity={0.9}
               >
@@ -361,7 +384,7 @@ export default function Home() {
                     </View>
                   )}
                   <TouchableOpacity style={styles.wishlistBtn}>
-                    <Heart size={16} color={colors.subtext} />
+                    <Heart size={14} color={colors.subtext} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.productInfo}>
@@ -369,6 +392,11 @@ export default function Home() {
                   <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                   <View style={styles.priceRow}>
                     <Text style={styles.productPrice}>₹{product.price}</Text>
+                    {product.discount && (
+                      <View style={styles.discountChip}>
+                        <Text style={styles.discountChipText}>{product.discount}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -377,44 +405,58 @@ export default function Home() {
         )}
       </View>
 
-      <View style={{ height: 24 }} />
+      <View style={{ height: 32 }} />
     </ScrollView>
   );
 }
 
-const getStyles = (colors: any, theme: string, width: number) =>
-  StyleSheet.create({
+const getStyles = (colors: any, theme: string, width: number, productCols: number) => {
+  const PAD = 16;
+  const GAP = 10;
+  // Exact fit: subtract padding on both sides, distribute gap between cols
+  const productCardWidth = Math.floor((width - PAD * 2 - GAP * (productCols - 1)) / productCols);
+  const dealWidth = Math.floor((width - PAD * 2 - GAP * 2) / 3);
+
+  return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
     // Header
     header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingHorizontal: 18,
-      paddingTop: 52,
-      paddingBottom: 12,
       backgroundColor: colors.card,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 4,
+      paddingBottom: 12,
+    },
+    headerInner: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: PAD + 2,
+      paddingTop: 52,
+      paddingBottom: 12,
     },
     logo: {
       fontSize: 22,
       fontWeight: "900",
       color: colors.primary,
-      letterSpacing: 3,
+      letterSpacing: 4,
     },
     greeting: {
       fontSize: 12,
       color: colors.subtext,
-      marginTop: 1,
+      marginTop: 2,
     },
     headerActions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: 8,
     },
     headerBtn: {
       width: 40,
@@ -426,22 +468,22 @@ const getStyles = (colors: any, theme: string, width: number) =>
     },
     notifDot: {
       position: "absolute",
-      top: 8,
-      right: 8,
+      top: 9,
+      right: 9,
       width: 7,
       height: 7,
       borderRadius: 4,
       backgroundColor: colors.primary,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.card,
     },
     // Search
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
-      margin: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      marginHorizontal: PAD,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
       backgroundColor: colors.inputBackground,
       borderRadius: 12,
       borderWidth: 1,
@@ -450,7 +492,7 @@ const getStyles = (colors: any, theme: string, width: number) =>
     },
     searchPlaceholder: {
       color: colors.subtext,
-      fontSize: 14,
+      fontSize: 13,
       flex: 1,
     },
     // Banner
@@ -459,8 +501,7 @@ const getStyles = (colors: any, theme: string, width: number) =>
       marginBottom: 4,
     },
     bannerSlide: {
-      width: width > 0 ? width : "100%" as any,
-      height: 210,
+      height: 240,
       position: "relative",
     },
     bannerImage: {
@@ -468,25 +509,21 @@ const getStyles = (colors: any, theme: string, width: number) =>
       height: "100%",
     },
     bannerOverlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.35)",
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.38)",
     },
     bannerContent: {
       position: "absolute",
       bottom: 32,
-      left: 24,
-      right: 24,
+      left: 26,
+      right: 26,
     },
     bannerTag: {
       alignSelf: "flex-start",
       backgroundColor: colors.primary,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: 5,
       marginBottom: 8,
     },
     bannerTagText: {
@@ -500,19 +537,19 @@ const getStyles = (colors: any, theme: string, width: number) =>
       fontSize: 26,
       fontWeight: "900",
       lineHeight: 32,
-      marginBottom: 12,
+      marginBottom: 14,
     },
     bannerCta: {
       flexDirection: "row",
       alignItems: "center",
       alignSelf: "flex-start",
-      backgroundColor: "rgba(255,255,255,0.2)",
+      backgroundColor: "rgba(255,255,255,0.18)",
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.5)",
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: 20,
-      gap: 4,
+      borderRadius: 22,
+      gap: 5,
     },
     bannerCtaText: {
       color: "#fff",
@@ -521,8 +558,8 @@ const getStyles = (colors: any, theme: string, width: number) =>
     },
     bannerDots: {
       position: "absolute",
-      bottom: 12,
-      right: 20,
+      bottom: 14,
+      right: 22,
       flexDirection: "row",
       gap: 5,
     },
@@ -538,7 +575,7 @@ const getStyles = (colors: any, theme: string, width: number) =>
     },
     // Section
     section: {
-      paddingHorizontal: 16,
+      paddingHorizontal: PAD,
       paddingTop: 22,
       paddingBottom: 4,
     },
@@ -557,7 +594,7 @@ const getStyles = (colors: any, theme: string, width: number) =>
     sectionSubtitle: {
       fontSize: 11,
       color: colors.subtext,
-      marginTop: 1,
+      marginTop: 2,
     },
     viewAllBtn: {
       flexDirection: "row",
@@ -569,52 +606,15 @@ const getStyles = (colors: any, theme: string, width: number) =>
       fontSize: 13,
       fontWeight: "700",
     },
-    // Categories
-    categoriesScroll: {
-      paddingRight: 8,
-      gap: 12,
-    },
-    categoryCard: {
-      width: 108,
-      alignItems: "center",
-    },
-    categoryImageWrap: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      overflow: "hidden",
-      borderWidth: 2,
-      borderColor: colors.border,
-    },
-    categoryImage: {
-      width: "100%",
-      height: "100%",
-    },
-    categoryOverlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.05)",
-    },
-    categoryName: {
-      textAlign: "center",
-      marginTop: 8,
-      fontSize: 13,
-      color: colors.text,
-      fontWeight: "700",
-    },
-
-    // Deals
-    dealsScroll: {
-      gap: 12,
-      paddingRight: 8,
+    // Deals Row — always fills full width
+    dealsRow: {
+      flexDirection: "row",
+      gap: GAP,
     },
     dealCard: {
-      width: 200,
-      height: 130,
-      borderRadius: 16,
+      flex: 1,
+      height: 160,
+      borderRadius: 14,
       overflow: "hidden",
       position: "relative",
     },
@@ -623,174 +623,219 @@ const getStyles = (colors: any, theme: string, width: number) =>
       height: "100%",
     },
     dealOverlay: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0,0,0,0.38)",
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.42)",
     },
     dealBadge: {
       position: "absolute",
-      top: 10,
-      right: 10,
+      top: 8,
+      right: 8,
       backgroundColor: colors.primary,
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: 4,
+      borderRadius: 5,
     },
     dealBadgeText: {
       color: "#fff",
       fontSize: 9,
-      fontWeight: "800",
+      fontWeight: "900",
       letterSpacing: 1,
     },
     dealContent: {
       position: "absolute",
-      bottom: 12,
-      left: 14,
+      bottom: 10,
+      left: 10,
     },
     dealTitle: {
       color: "#fff",
-      fontSize: 16,
+      fontSize: 13,
       fontWeight: "800",
     },
     dealSubtitle: {
       color: "rgba(255,255,255,0.75)",
-      fontSize: 11,
-      marginTop: 2,
+      fontSize: 10,
+      fontWeight: "500",
     },
-    // Recently Viewed
-    recentScroll: {
-      gap: 12,
+    // Categories horizontal scroll
+    categoriesScroll: {
       paddingRight: 8,
+      gap: 12,
+    },
+    categoryCard: {
+      width: 96,
+      alignItems: "center",
+    },
+    categoryImageWrap: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      overflow: "hidden",
+      borderWidth: 2.5,
+      borderColor: colors.border,
+    },
+    categoryImage: {
+      width: "100%",
+      height: "100%",
+    },
+    categoryOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.04)",
+    },
+    categoryName: {
+      textAlign: "center",
+      marginTop: 7,
+      fontSize: 11,
+      color: colors.text,
+      fontWeight: "700",
+    },
+    // Recently viewed
+    recentScroll: {
+      paddingRight: 8,
+      gap: 12,
     },
     recentCard: {
       width: 130,
       backgroundColor: colors.card,
-      borderRadius: 12,
+      borderRadius: 14,
       overflow: "hidden",
       borderWidth: 1,
       borderColor: colors.border,
     },
     recentImage: {
       width: "100%",
-      height: 110,
+      height: 120,
     },
     recentInfo: {
-      padding: 8,
+      padding: 9,
     },
     recentBrand: {
-      fontSize: 10,
-      fontWeight: "700",
+      fontSize: 9,
+      fontWeight: "800",
       color: colors.subtext,
       textTransform: "uppercase",
+      letterSpacing: 0.5,
     },
     recentName: {
-      fontSize: 12,
+      fontSize: 11,
+      fontWeight: "600",
       color: colors.text,
-      marginTop: 2,
+      marginVertical: 2,
     },
     recentPrice: {
       fontSize: 13,
-      fontWeight: "700",
+      fontWeight: "900",
       color: colors.primary,
-      marginTop: 4,
     },
     // Trending badge
     trendingBadge: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
-      backgroundColor: theme === "dark" ? "#2a1f1f" : "#fff0f3",
+      backgroundColor: `${colors.primary}18`,
       paddingHorizontal: 10,
       paddingVertical: 5,
-      borderRadius: 12,
+      borderRadius: 20,
+      gap: 4,
       borderWidth: 1,
-      borderColor: theme === "dark" ? "#4a2a2a" : "#ffd6df",
+      borderColor: `${colors.primary}30`,
     },
     trendingBadgeText: {
       color: colors.primary,
       fontSize: 11,
       fontWeight: "700",
     },
-    // Products
+    // Products Grid — fills FULL width
     productsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 10,
+      gap: GAP,
     },
     productCard: {
-      width: width > 100 ? (width - 42) / 3 : 110,
+      width: productCardWidth,
       backgroundColor: colors.card,
-      borderRadius: 12,
+      borderRadius: 14,
       overflow: "hidden",
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.07,
-      shadowRadius: 6,
-      elevation: 3,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: theme === "dark" ? 0.25 : 0.07,
+      shadowRadius: 10,
+      elevation: 4,
     },
     productImageWrap: {
       position: "relative",
     },
     productImage: {
       width: "100%",
-      height: 180,
+      height: 190,
     },
-
     productDiscountBadge: {
       position: "absolute",
       top: 8,
       left: 8,
       backgroundColor: colors.primary,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 5,
     },
     productDiscountText: {
       color: "#fff",
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: "800",
+      letterSpacing: 0.5,
     },
     wishlistBtn: {
       position: "absolute",
       top: 8,
       right: 8,
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: theme === "dark" ? "rgba(30,30,30,0.85)" : "rgba(255,255,255,0.88)",
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: theme === "dark" ? "rgba(21,21,33,0.85)" : "rgba(255,255,255,0.9)",
       justifyContent: "center",
       alignItems: "center",
     },
     productInfo: {
-      padding: 7,
+      padding: 10,
     },
     brandName: {
-      fontSize: 10,
-      fontWeight: "700",
+      fontSize: 9,
+      fontWeight: "800",
       color: colors.subtext,
       textTransform: "uppercase",
-      letterSpacing: 0.3,
-      marginBottom: 1,
+      letterSpacing: 0.8,
+      marginBottom: 2,
     },
     productName: {
-      fontSize: 11,
+      fontSize: 12,
+      fontWeight: "600",
       color: colors.text,
-      lineHeight: 15,
-      marginBottom: 4,
+      lineHeight: 17,
+      marginBottom: 6,
     },
     priceRow: {
       flexDirection: "row",
       alignItems: "center",
+      gap: 6,
     },
     productPrice: {
-      fontSize: 13,
-      fontWeight: "800",
+      fontSize: 14,
+      fontWeight: "900",
       color: colors.text,
+    },
+    discountChip: {
+      backgroundColor: `${colors.primary}18`,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    discountChipText: {
+      fontSize: 9,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+    loader: {
+      marginVertical: 40,
     },
     emptyText: {
       color: colors.subtext,
@@ -798,8 +843,5 @@ const getStyles = (colors: any, theme: string, width: number) =>
       textAlign: "center",
       padding: 20,
     },
-    loader: {
-      marginTop: 40,
-      marginBottom: 20,
-    },
   });
+};
