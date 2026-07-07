@@ -681,7 +681,7 @@ module.exports = async (req, res) => {
         }
         // Return full history with populated product and viewedAt
         const history = await RecentlyViewed.find({ userId })
-          .sort({ viewedAt: -1 }).limit(50).populate("productId");
+          .sort({ viewedAt: -1 }).limit(20).populate("productId");
         return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
       if (method === "POST") {
@@ -698,7 +698,7 @@ module.exports = async (req, res) => {
       }
       if (method === "GET" && query.userId) {
         const history = await RecentlyViewed.find({ userId: query.userId })
-          .sort({ viewedAt: -1 }).limit(50).populate("productId");
+          .sort({ viewedAt: -1 }).limit(20).populate("productId");
         return res.json(history.map((h) => ({ productId: h.productId, viewedAt: h.viewedAt })));
       }
     }

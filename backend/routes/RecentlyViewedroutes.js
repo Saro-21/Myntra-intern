@@ -27,7 +27,7 @@ router.post("/", async (req, res) => {
         await RecentlyViewed.deleteMany({ userId, _id: { $nin: top50Ids } });
       }
       const history = await RecentlyViewed.find({ userId })
-        .sort({ viewedAt: -1 }).limit(50).populate("productId");
+        .sort({ viewedAt: -1 }).limit(20).populate("productId");
       return res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
     } catch (err) {
       console.error("Error in sync:", err);
@@ -73,7 +73,7 @@ router.get("/", async (req, res) => {
   try {
     const history = await RecentlyViewed.find({ userId })
       .sort({ viewedAt: -1 })
-      .limit(50)
+      .limit(20)
       .populate("productId");
     res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
   } catch (error) {
@@ -119,7 +119,7 @@ router.post("/sync", async (req, res) => {
       await RecentlyViewed.deleteMany({ userId, _id: { $nin: top50Ids } });
     }
     const history = await RecentlyViewed.find({ userId })
-      .sort({ viewedAt: -1 }).limit(50).populate("productId");
+      .sort({ viewedAt: -1 }).limit(20).populate("productId");
     res.status(200).json(history.map(h => ({ productId: h.productId, viewedAt: h.viewedAt })));
   } catch (error) {
     console.error("Error syncing recently viewed products:", error);

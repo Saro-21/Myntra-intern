@@ -87,26 +87,33 @@ export default function Home() {
   const dealCols = isWide ? 4 : isMid ? 3 : 3;
   const contentMaxWidth = isWide ? 1400 : "100%";
 
+  const bannerWidth = isWide ? 1100 : width;
+  const bannerHeight = isWide ? 380 : 240;
+
   const styles = getStyles(colors, theme, width, productCols);
 
   // Banner auto-scroll
   const [activeBanner, setActiveBanner] = useState(0);
   const bannerRef = useRef<FlatList>(null);
-  const bannerScrollX = useRef(new Animated.Value(0)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
       setActiveBanner((prev) => {
         const next = (prev + 1) % bannerSlides.length;
-        bannerRef.current?.scrollToIndex({ index: next, animated: true });
+        try {
+          bannerRef.current?.scrollToIndex({ index: next, animated: true });
+        } catch (e) {
+          // Prevent React Native Web index scroll crashes during resizing
+        }
         return next;
       });
     }, 3500);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [bannerWidth]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,7 +139,7 @@ export default function Home() {
   };
 
   const renderBanner = ({ item }: { item: typeof bannerSlides[0] }) => (
-    <View style={[styles.bannerSlide, { width }]}>
+    <View style={[styles.bannerSlide, { width: bannerWidth, height: bannerHeight }]}>
       <Image source={{ uri: item.uri }} style={styles.bannerImage} resizeMode="cover" />
       <View style={styles.bannerOverlay} />
       <View style={styles.bannerContent}>
@@ -192,7 +199,7 @@ export default function Home() {
       </View>
 
       {/* Banner Carousel */}
-      <View style={styles.bannerContainer}>
+      <View style={[styles.bannerContainer, { width: bannerWidth, height: bannerHeight, alignSelf: "center" }]}>
         <FlatList
           ref={bannerRef}
           data={bannerSlides}
@@ -201,19 +208,17 @@ export default function Home() {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: bannerScrollX } } }],
-            { useNativeDriver: false }
-          )}
-          onMomentumScrollEnd={(e) => {
-            if (width > 0) {
-              const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+          onScroll={(e) => {
+            const offsetX = e.nativeEvent.contentOffset.x;
+            const idx = Math.round(offsetX / bannerWidth);
+            if (idx !== activeBanner && idx >= 0 && idx < bannerSlides.length) {
               setActiveBanner(idx);
             }
           }}
+          scrollEventThrottle={16}
           getItemLayout={(_, index) => ({
-            length: width,
-            offset: width * index,
+            length: bannerWidth,
+            offset: bannerWidth * index,
             index,
           })}
         />
