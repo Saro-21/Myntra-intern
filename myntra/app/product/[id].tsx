@@ -11,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Heart, ShoppingBag, ChevronRight } from "lucide-react-native";
+import { Heart, ShoppingBag, ChevronRight, Bookmark } from "lucide-react-native";
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
@@ -99,6 +99,7 @@ export default function ProductDetails() {
   const { addToRecentlyViewed } = useRecentlyViewed();
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
+  const [isSavedForLater, setIsSavedForLater] = useState(false);
   const { theme, colors } = useTheme();
   const [recommendations, setRecommendations] = useState<any[]>([]);
 
@@ -118,9 +119,16 @@ export default function ProductDetails() {
         }
 
         if (user && res.data) {
-          const wishlistRes = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
+          const [wishlistRes, bagRes] = await Promise.all([
+            axios.get(`${API_URL}/wishlist?userId=${user._id}`),
+            axios.get(`${API_URL}/bag?userId=${user._id}`)
+          ]);
           const inWishlist = wishlistRes.data.some((item: any) => item.productId?._id === res.data._id);
           setiswishlist(inWishlist);
+
+          const savedItems = bagRes.data?.savedItems || [];
+          const isSaved = savedItems.some((item: any) => item.productId?._id === res.data._id);
+          setIsSavedForLater(isSaved);
         }
 
         // Fetch personalized recommendations (falls back to cold-start for anonymous)
@@ -188,6 +196,36 @@ export default function ProductDetails() {
       }
     } catch (error) {
       console.log(error);
+    }
+  };
+
+  const handleSaveForLater = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    try {
+      if (isSavedForLater) {
+        const bagRes = await axios.get(`${API_URL}/bag?userId=${user._id}`);
+        const savedItem = (bagRes.data?.savedItems || []).find((item: any) => item.productId?._id === product._id);
+        if (savedItem) {
+          await axios.delete(`${API_URL}/bag?itemId=${savedItem._id}`);
+          setIsSavedForLater(false);
+          alert("Removed from Saved Items!");
+        }
+      } else {
+        await axios.post(`${API_URL}/bag`, {
+          userId: user._id,
+          productId: product._id,
+          size: selectedSize || "M",
+          quantity: 1,
+          savedForLater: true
+        });
+        setIsSavedForLater(true);
+        alert("Saved for later!");
+      }
+    } catch (error) {
+      console.log("Failed to save for later:", error);
     }
   };
   const handleAddToBag = async () => {
@@ -283,20 +321,40 @@ export default function ProductDetails() {
 
         <View style={styles.content}>
           <View style={styles.header}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.brand}>{product.brand}</Text>
               <Text style={styles.name}>{product.name}</Text>
             </View>
-            <TouchableOpacity
-              style={styles.wishlistButton}
-              onPress={handleAddwishlist}
-            >
-              <Heart
-                size={24}
-                color={iswishlist ? colors.primary : colors.icon}
-                fill={iswishlist ? colors.primary : "none"}
-              />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  isSavedForLater && styles.saveButtonActive
+                ]}
+                onPress={handleSaveForLater}
+                activeOpacity={0.7}
+              >
+                <Bookmark
+                  size={16}
+                  color={isSavedForLater ? "#fff" : colors.primary}
+                  fill={isSavedForLater ? "#fff" : "none"}
+                />
+                <Text style={[styles.saveButtonText, isSavedForLater && styles.saveButtonTextActive]}>
+                  {isSavedForLater ? "SAVED" : "SAVE"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.wishlistButton}
+                onPress={handleAddwishlist}
+              >
+                <Heart
+                  size={24}
+                  color={iswishlist ? colors.primary : colors.icon}
+                  fill={iswishlist ? colors.primary : "none"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.priceContainer}>
@@ -420,6 +478,30 @@ const getStyles = (theme: string, colors: any, screenWidth: number) =>
     },
     paginationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.5)", marginHorizontal: 4 },
     paginationDotActive: { backgroundColor: "#fff", width: 10, height: 10, borderRadius: 5 },
+    saveButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      backgroundColor: "transparent",
+      alignSelf: "center",
+    },
+    saveButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    saveButtonText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.primary,
+      letterSpacing: 0.5,
+    },
+    saveButtonTextActive: {
+      color: "#fff",
+    },
     content: { padding: 20 },
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
     brand: { fontSize: 16, color: colors.subtext, marginBottom: 5 },

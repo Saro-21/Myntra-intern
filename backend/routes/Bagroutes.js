@@ -27,7 +27,7 @@ const Product = require("../models/Product");
 // POST /bag
 // Upserts by userId+productId+size; snapshots current product price as priceAtAdd
 router.post("/", async (req, res) => {
-  const { userId, productId, size, quantity } = req.body;
+  const { userId, productId, size, quantity, savedForLater } = req.body;
   if (!userId || !productId) {
     return res.status(400).json({ message: "userId and productId are required" });
   }
@@ -42,8 +42,12 @@ router.post("/", async (req, res) => {
     }
 
     // Upsert: if the user already has this product+size, increment quantity
-    const existing = await Bag.findOne({ userId, productId, size: size || "M", savedForLater: false });
+    const isSaveLater = savedForLater === true;
+    const existing = await Bag.findOne({ userId, productId, size: size || "M", savedForLater: isSaveLater });
     if (existing) {
+      if (isSaveLater) {
+        return res.status(200).json(existing);
+      }
       const updated = await Bag.findOneAndUpdate(
         { _id: existing._id, __v: existing.__v }, // Optimistic lock check
         { $inc: { quantity: quantity || 1 } },
@@ -61,7 +65,7 @@ router.post("/", async (req, res) => {
       size: size || "M",
       quantity: quantity || 1,
       priceAtAdd: product.price,
-      savedForLater: false,
+      savedForLater: isSaveLater,
     });
     return res.status(200).json(newItem);
   } catch (error) {

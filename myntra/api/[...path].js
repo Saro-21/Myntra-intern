@@ -481,15 +481,19 @@ module.exports = async (req, res) => {
 
       // ── ADD to Cart ───────────────────────────────────────────────────────
       if (method === "POST") {
-        const { userId, productId, size, quantity } = req.body;
+        const { userId, productId, size, quantity, savedForLater } = req.body;
         if (!userId || !productId) return res.status(400).json({ message: "userId and productId are required" });
 
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ message: "Product not found" });
         if (!product.inStock || product.stock < 1) return res.status(409).json({ message: "Product is out of stock" });
 
-        const existing = await Bag.findOne({ userId, productId, size: size || "M", savedForLater: false });
+        const isSaveLater = savedForLater === true;
+        const existing = await Bag.findOne({ userId, productId, size: size || "M", savedForLater: isSaveLater });
         if (existing) {
+          if (isSaveLater) {
+            return res.json(existing);
+          }
           const updated = await Bag.findOneAndUpdate(
             { _id: existing._id, __v: existing.__v },
             { $inc: { quantity: quantity || 1 } },
@@ -505,7 +509,7 @@ module.exports = async (req, res) => {
           size: size || "M",
           quantity: quantity || 1,
           priceAtAdd: product.price,
-          savedForLater: false
+          savedForLater: isSaveLater
         });
 
         // Cart Abandonment reminder setup
