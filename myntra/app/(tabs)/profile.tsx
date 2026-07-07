@@ -60,6 +60,7 @@ export default function Profile() {
     history: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const [recs, setRecs] = useState<any[]>([]);
 
   const styles = getStyles(theme, colors);
 
@@ -75,6 +76,16 @@ export default function Profile() {
         orders: Array.isArray(ordRes.data) ? ordRes.data.length : 0,
         history: recentlyViewed ? recentlyViewed.length : 0,
       });
+
+      // Fetch dynamic recommended products
+      const recUrl = `${API_URL}/recommendations?userId=${user._id}&limit=4`;
+      const recRes = await axios.get(recUrl);
+      let list = Array.isArray(recRes.data) ? recRes.data : [];
+      if (list.length === 0) {
+        const prodRes = await axios.get(`${API_URL}/product`);
+        list = Array.isArray(prodRes.data) ? prodRes.data.slice(0, 4) : [];
+      }
+      setRecs(list);
     } catch (error) {
       console.log("Error fetching profile stats:", error);
     } finally {
@@ -209,10 +220,6 @@ export default function Profile() {
                 </View>
               </View>
               <Text style={styles.userSubtitle}>Premium member since May 2024</Text>
-              
-              <TouchableOpacity style={styles.rewardsBadge} activeOpacity={0.8}>
-                <Text style={styles.rewardsText}>⭐ 720 Reward Points  ›</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -293,15 +300,10 @@ export default function Profile() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recsScroll}>
-          {[
-            { id: "rec1", brand: "Roadster", name: "Men Solid Crew Neck T-Shirt", price: "₹1,499", rating: "4.5 ★", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=300&auto=format&fit=crop" },
-            { id: "rec2", brand: "Fastrack", name: "Classic Black Dial Analog Watch", price: "₹1,895", rating: "4.3 ★", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop" },
-            { id: "rec3", brand: "HRX by Hrithik", name: "Running Shoes with Cushioned Sole", price: "₹1,299", rating: "4.6 ★", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop" },
-            { id: "rec4", brand: "Wildcraft", name: "Water Resistant Hiking Backpack", price: "₹1,799", rating: "4.4 ★", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&auto=format&fit=crop" },
-          ].map((item) => (
-            <TouchableOpacity key={item.id} style={styles.recCard} activeOpacity={0.9} onPress={() => router.push(`/product/${item.id}`)}>
+          {recs.map((item: any) => (
+            <TouchableOpacity key={item._id} style={styles.recCard} activeOpacity={0.9} onPress={() => router.push(`/product/${item._id}`)}>
               <View style={styles.recCardImgWrap}>
-                <Image source={{ uri: item.image }} style={styles.recCardImg} />
+                <Image source={{ uri: item.images?.[0] || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&auto=format&fit=crop" }} style={styles.recCardImg} />
                 <TouchableOpacity style={styles.recHeartBtn} activeOpacity={0.7}>
                   <Heart size={14} color="#777" />
                 </TouchableOpacity>
@@ -310,8 +312,8 @@ export default function Profile() {
                 <Text style={styles.recBrandText}>{item.brand}</Text>
                 <Text style={styles.recNameText} numberOfLines={1}>{item.name}</Text>
                 <View style={styles.recRow}>
-                  <Text style={styles.recPriceText}>{item.price}</Text>
-                  <Text style={styles.recRatingText}>{item.rating}</Text>
+                  <Text style={styles.recPriceText}>₹{item.price}</Text>
+                  <Text style={styles.recRatingText}>4.5 ★</Text>
                 </View>
               </View>
             </TouchableOpacity>
