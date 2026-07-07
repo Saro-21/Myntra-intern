@@ -134,6 +134,7 @@ export default function Profile() {
                 styles.themeCard,
                 isActive && styles.themeCardActive,
               ]}
+              className="hover-grow"
               onPress={() => setTheme(opt as any)}
               activeOpacity={0.8}
             >
@@ -171,6 +172,7 @@ export default function Profile() {
             </Text>
             <TouchableOpacity
               style={styles.loginButton}
+              className="hover-grow hover-glow-button"
               onPress={() => router.push("/login")}
               activeOpacity={0.9}
             >
@@ -199,7 +201,7 @@ export default function Profile() {
 
       <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
         {/* Profile Card overlapping the header */}
-        <View style={styles.profileCard}>
+        <View style={styles.profileCard} className="hover-grow">
           <View style={styles.profileMain}>
             <View style={styles.avatarOutline}>
               <View style={styles.avatar}>
@@ -267,7 +269,7 @@ export default function Profile() {
         {menuGroups.map((group, gIdx) => (
           <View key={gIdx} style={styles.menuGroupSection}>
             <Text style={styles.menuGroupTitle}>{group.title}</Text>
-            <View style={styles.menuGroupCard}>
+            <View style={styles.menuGroupCard} className="hover-grow">
               {group.items.map((item, index) => {
                 const badgeCount = item.badgeKey ? (stats as any)[item.badgeKey] : 0;
                 return (
@@ -306,6 +308,7 @@ export default function Profile() {
         {/* Logout Button */}
         <TouchableOpacity 
           style={styles.logoutButton} 
+          className="hover-grow hover-glow-button"
           onPress={handleLogout}
           activeOpacity={0.8}
         >
