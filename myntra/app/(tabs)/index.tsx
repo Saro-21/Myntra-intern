@@ -11,14 +11,13 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, ChevronRight, Heart, Bell, Sparkles, TrendingUp } from "lucide-react-native";
+import { Search, ChevronRight, Heart, Bell, TrendingUp } from "lucide-react-native";
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useTheme } from "@/context/ThemeContext";
-import { Animated } from "react-native";
 
 const bannerSlides = [
   {
@@ -92,39 +91,53 @@ export default function Home() {
 
   const styles = getStyles(colors, theme, width, productCols);
 
-  // Banner auto-scroll
+  // Banner auto-scroll — web uses DOM scrollLeft, native uses scrollToIndex
   const [activeBanner, setActiveBanner] = useState(0);
-  const bannerRef = useRef<FlatList>(null);
+  const bannerFlatListRef = useRef<FlatList>(null);
+  const webBannerRef = useRef<any>(null); // div ref for web
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeBannerRef = useRef(0); // shadow ref so interval closure has latest value
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+
+  useEffect(() => {
+    activeBannerRef.current = activeBanner;
+  }, [activeBanner]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      setActiveBanner((prev) => {
-        const next = (prev + 1) % bannerSlides.length;
-        try {
-          bannerRef.current?.scrollToIndex({ index: next, animated: true });
-        } catch (e) {
-          // Prevent React Native Web index scroll crashes during resizing
+      const next = (activeBannerRef.current + 1) % bannerSlides.length;
+      setActiveBanner(next);
+      if (Platform.OS === "web") {
+        // Smooth CSS scroll on web
+        const el = webBannerRef.current;
+        if (el) {
+          el.scrollTo({ left: next * bannerWidth, behavior: "smooth" });
         }
-        return next;
-      });
+      } else {
+        try {
+          bannerFlatListRef.current?.scrollToIndex({ index: next, animated: true });
+        } catch (_) {}
+      }
     }, 3500);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [bannerWidth]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [catRes, prodRes] = await Promise.all([
+        const recUrl = user 
+          ? `${API_URL}/recommendations?userId=${user._id}&limit=10`
+          : `${API_URL}/recommendations?limit=10`;
+        const [catRes, prodRes, recRes] = await Promise.all([
           axios.get(`${API_URL}/category`),
           axios.get(`${API_URL}/product`),
+          axios.get(recUrl).catch(() => ({ data: [] })),
         ]);
         setCategories(Array.isArray(catRes.data) ? catRes.data : []);
         setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+        setRecommendations(Array.isArray(recRes.data) ? recRes.data : []);
       } catch (error) {
         console.log(error);
       } finally {
@@ -132,13 +145,14 @@ export default function Home() {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleProductPress = (productId: string | number) => {
     router.push(`/product/${productId}`);
   };
 
-  const renderBanner = ({ item }: { item: typeof bannerSlides[0] }) => (
+  // Native-only renderBanner (FlatList item)
+  const renderBannerNative = ({ item }: { item: typeof bannerSlides[0] }) => (
     <View style={[styles.bannerSlide, { width: bannerWidth, height: bannerHeight }]}>
       <Image source={{ uri: item.uri }} style={styles.bannerImage} resizeMode="cover" />
       <View style={styles.bannerOverlay} />
@@ -154,6 +168,29 @@ export default function Home() {
       </View>
     </View>
   );
+
+  // Web-only inline CSS banner carousel using scroll-snap
+  const webBannerInlineStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "row",
+    overflowX: "auto",
+    scrollSnapType: "x mandatory",
+    scrollBehavior: "smooth",
+    width: "100%",
+    height: "100%",
+    msOverflowStyle: "none",
+    scrollbarWidth: "none",
+  } as React.CSSProperties;
+
+  const webSlideInlineStyle: React.CSSProperties = {
+    minWidth: "100%",
+    height: "100%",
+    scrollSnapAlign: "start",
+    flexShrink: 0,
+    position: "relative",
+    display: "flex",
+    overflow: "hidden",
+  } as React.CSSProperties;
 
   return (
     <ScrollView
@@ -200,28 +237,104 @@ export default function Home() {
 
       {/* Banner Carousel */}
       <View style={[styles.bannerContainer, { width: bannerWidth, height: bannerHeight, alignSelf: "center" }]}>
-        <FlatList
-          ref={bannerRef}
-          data={bannerSlides}
-          renderItem={renderBanner}
-          keyExtractor={(item) => String(item.id)}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={(e) => {
-            const offsetX = e.nativeEvent.contentOffset.x;
-            const idx = Math.round(offsetX / bannerWidth);
-            if (idx !== activeBanner && idx >= 0 && idx < bannerSlides.length) {
-              setActiveBanner(idx);
-            }
-          }}
-          scrollEventThrottle={16}
-          getItemLayout={(_, index) => ({
-            length: bannerWidth,
-            offset: bannerWidth * index,
-            index,
-          })}
-        />
+        {Platform.OS === "web" ? (
+          // ── Web: CSS scroll-snap carousel (reliable in all browsers) ──────────
+          <div
+            ref={webBannerRef}
+            style={webBannerInlineStyle}
+            onScroll={(e: any) => {
+              const el = e.currentTarget;
+              const idx = Math.round(el.scrollLeft / el.offsetWidth);
+              if (idx >= 0 && idx < bannerSlides.length && idx !== activeBannerRef.current) {
+                setActiveBanner(idx);
+                activeBannerRef.current = idx;
+              }
+            }}
+          >
+            {bannerSlides.map((item) => (
+              <div key={item.id} style={webSlideInlineStyle}>
+                <img
+                  src={item.uri}
+                  alt={item.tag}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: "rgba(0,0,0,0.38)",
+                }} />
+                <div style={{
+                  position: "absolute",
+                  bottom: 32,
+                  left: 26,
+                  right: 26,
+                }}>
+                  <div style={{
+                    display: "inline-block",
+                    background: colors.primary,
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 1.5,
+                    padding: "4px 10px",
+                    borderRadius: 5,
+                    marginBottom: 8,
+                  }}>
+                    {item.tag}
+                  </div>
+                  <div style={{
+                    color: "#fff",
+                    fontSize: 26,
+                    fontWeight: 900,
+                    lineHeight: "1.25",
+                    marginBottom: 14,
+                    whiteSpace: "pre-line",
+                  }}>
+                    {item.title}
+                  </div>
+                  <div style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "rgba(255,255,255,0.18)",
+                    border: "1px solid rgba(255,255,255,0.5)",
+                    padding: "8px 14px",
+                    borderRadius: 22,
+                    cursor: "pointer",
+                  }}>
+                    <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>{item.cta}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // ── Native: FlatList with pagingEnabled ───────────────────────────────
+          <FlatList
+            ref={bannerFlatListRef}
+            data={bannerSlides}
+            renderItem={renderBannerNative}
+            keyExtractor={(item) => String(item.id)}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => {
+              const offsetX = e.nativeEvent.contentOffset.x;
+              const idx = Math.round(offsetX / bannerWidth);
+              if (idx !== activeBanner && idx >= 0 && idx < bannerSlides.length) {
+                setActiveBanner(idx);
+              }
+            }}
+            scrollEventThrottle={16}
+            getItemLayout={(_, index) => ({
+              length: bannerWidth,
+              offset: bannerWidth * index,
+              index,
+            })}
+          />
+        )}
         {/* Dots */}
         <View style={styles.bannerDots}>
           {bannerSlides.map((_, i) => (
@@ -339,6 +452,49 @@ export default function Home() {
                 activeOpacity={0.9}
               >
                 <Image source={{ uri: item.images[0] }} style={styles.recentImage} />
+                <View style={styles.recentInfo}>
+                  <Text style={styles.recentBrand} numberOfLines={1}>{item.brand}</Text>
+                  <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.recentPrice}>₹{item.price}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* You May Also Like (Personalized Recommendations) */}
+      {recommendations && recommendations.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>YOU MAY ALSO LIKE</Text>
+              <Text style={styles.sectionSubtitle}>
+                {user ? "Personalized recommendations for you" : "Trending popular styles"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.viewAllBtn}
+              onPress={() => router.push("/categories")}
+            >
+              <Text style={styles.viewAllText}>See All</Text>
+              <ChevronRight size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recentScroll}
+          >
+            {recommendations.map((item: any) => (
+              <TouchableOpacity
+                key={item._id}
+                style={styles.recentCard}
+                className={isWeb ? "hover-grow" : undefined}
+                onPress={() => handleProductPress(item._id)}
+                activeOpacity={0.9}
+              >
+                <Image source={{ uri: item.images?.[0] }} style={styles.recentImage} />
                 <View style={styles.recentInfo}>
                   <Text style={styles.recentBrand} numberOfLines={1}>{item.brand}</Text>
                   <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>

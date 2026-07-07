@@ -8,15 +8,18 @@ import {
   StyleSheet,
   useWindowDimensions,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Heart, ShoppingBag } from "lucide-react-native";
+import { Heart, ShoppingBag, ChevronRight } from "lucide-react-native";
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
 import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useTheme } from "@/context/ThemeContext";
+
+const isWeb = Platform.OS === "web";
 
 // Mock product data - in a real app, this would come from an API
 // const products = {
@@ -97,11 +100,12 @@ export default function ProductDetails() {
   const [product, setproduct] = useState<any>(null);
   const [iswishlist, setiswishlist] = useState(false);
   const { theme, colors } = useTheme();
+  const [recommendations, setRecommendations] = useState<any[]>([]);
 
-  const styles = getStyles(theme, colors);
+  const styles = getStyles(theme, colors, width);
 
   useEffect(() => {
-    if (!id) return; // Guard: wait until Expo Router resolves the param
+    if (!id) return;
 
     const fetchproduct = async () => {
       try {
@@ -109,17 +113,24 @@ export default function ProductDetails() {
         const res = await axios.get(`${API_URL}/product?id=${id}`);
         setproduct(res.data);
 
-        // Always track for recently viewed (works for anonymous + logged-in users)
         if (res.data) {
           addToRecentlyViewed(res.data);
         }
 
         if (user && res.data) {
-          // Check if product is in wishlist
           const wishlistRes = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
           const inWishlist = wishlistRes.data.some((item: any) => item.productId?._id === res.data._id);
           setiswishlist(inWishlist);
         }
+
+        // Fetch personalized recommendations (falls back to cold-start for anonymous)
+        const recUrl = user
+          ? `${API_URL}/recommendations?userId=${user._id}&limit=8`
+          : `${API_URL}/recommendations?limit=8`;
+        const recRes = await axios.get(recUrl);
+        const recData = Array.isArray(recRes.data) ? recRes.data : [];
+        // Exclude the current product from recommendations
+        setRecommendations(recData.filter((p: any) => String(p._id) !== String(id)));
       } catch (err) {
         console.error(err);
       } finally {
@@ -127,7 +138,7 @@ export default function ProductDetails() {
       }
     };
     fetchproduct();
-  }, [id, user]); // Re-run when id becomes available
+  }, [id, user]);
 
   useEffect(() => {
     // Start auto-scroll
@@ -320,6 +331,60 @@ export default function ProductDetails() {
             </View>
           </View>
         </View>
+
+        {/* ── You May Also Like ─────────────────────────────────────────── */}
+        {recommendations.length > 0 && (
+          <View style={styles.recsSection}>
+            <View style={styles.recsSectionHeader}>
+              <View>
+                <Text style={styles.recsSectionTitle}>YOU MAY ALSO LIKE</Text>
+                <Text style={styles.recsSectionSub}>
+                  {user ? "Personalised for you" : "Popular picks"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.recsViewAll}
+                onPress={() => router.push("/categories")}
+              >
+                <Text style={styles.recsViewAllText}>See all</Text>
+                <ChevronRight size={13} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recsScroll}
+            >
+              {recommendations.map((rec: any) => (
+                <TouchableOpacity
+                  key={rec._id}
+                  style={styles.recCard}
+                  className={isWeb ? "hover-grow" : undefined}
+                  onPress={() => router.push(`/product/${rec._id}`)}
+                  activeOpacity={0.88}
+                >
+                  <Image
+                    source={{ uri: rec.images?.[0] }}
+                    style={styles.recImage}
+                    resizeMode="cover"
+                  />
+                  {rec.discount && (
+                    <View style={styles.recBadge}>
+                      <Text style={styles.recBadgeText}>{rec.discount}</Text>
+                    </View>
+                  )}
+                  <View style={styles.recInfo}>
+                    <Text style={styles.recBrand} numberOfLines={1}>{rec.brand}</Text>
+                    <Text style={styles.recName} numberOfLines={2}>{rec.name}</Text>
+                    <Text style={styles.recPrice}>₹{rec.price}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       <View style={styles.footer}>
@@ -342,148 +407,78 @@ export default function ProductDetails() {
   );
 }
 
-const getStyles = (theme: string, colors: any) =>
+const getStyles = (theme: string, colors: any, screenWidth: number) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    loaderContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: colors.background,
-    },
-    carouselContainer: {
-      position: "relative",
-    },
-    productImage: {
-      height: 400,
-    },
+    container: { flex: 1, backgroundColor: colors.background },
+    loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
+    carouselContainer: { position: "relative" },
+    productImage: { height: 400 },
     pagination: {
-      position: "absolute",
-      bottom: 16,
-      flexDirection: "row",
-      width: "100%",
-      justifyContent: "center",
-      alignItems: "center",
+      position: "absolute", bottom: 16,
+      flexDirection: "row", width: "100%",
+      justifyContent: "center", alignItems: "center",
     },
-    paginationDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: "rgba(255, 255, 255, 0.5)",
-      marginHorizontal: 4,
-    },
-    paginationDotActive: {
-      backgroundColor: "#fff",
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    content: {
-      padding: 20,
-    },
-    header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-    },
-    brand: {
-      fontSize: 16,
-      color: colors.subtext,
-      marginBottom: 5,
-    },
-    name: {
-      fontSize: 20,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 10,
-    },
-    wishlistButton: {
-      padding: 10,
-    },
-    priceContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: 15,
-    },
-    price: {
-      fontSize: 20,
-      fontWeight: "bold",
-      color: colors.text,
-      marginRight: 10,
-    },
-    discount: {
-      fontSize: 16,
-      color: colors.primary,
-    },
-    description: {
-      fontSize: 16,
-      color: colors.subtext,
-      lineHeight: 24,
-      marginBottom: 20,
-    },
-    sizeSection: {
-      marginBottom: 20,
-    },
-    sizeTitle: {
-      fontSize: 16,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 10,
-    },
-    sizeGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 10,
-    },
+    paginationDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.5)", marginHorizontal: 4 },
+    paginationDotActive: { backgroundColor: "#fff", width: 10, height: 10, borderRadius: 5 },
+    content: { padding: 20 },
+    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+    brand: { fontSize: 16, color: colors.subtext, marginBottom: 5 },
+    name: { fontSize: 20, fontWeight: "bold", color: colors.text, marginBottom: 10 },
+    wishlistButton: { padding: 10 },
+    priceContainer: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
+    price: { fontSize: 20, fontWeight: "bold", color: colors.text, marginRight: 10 },
+    discount: { fontSize: 16, color: colors.primary },
+    description: { fontSize: 16, color: colors.subtext, lineHeight: 24, marginBottom: 20 },
+    sizeSection: { marginBottom: 20 },
+    sizeTitle: { fontSize: 16, fontWeight: "bold", color: colors.text, marginBottom: 10 },
+    sizeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     sizeButton: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: "center",
-      alignItems: "center",
+      width: 60, height: 60, borderRadius: 30,
+      borderWidth: 1, borderColor: colors.border,
+      justifyContent: "center", alignItems: "center",
       backgroundColor: colors.card,
     },
     selectedSize: {
       borderColor: colors.primary,
       backgroundColor: theme === 'myntra' ? colors.border : (theme === 'dark' ? '#251c20' : '#fff4f4'),
     },
-    sizeText: {
-      fontSize: 16,
-      color: colors.text,
-    },
-    selectedSizeText: {
-      color: colors.primary,
-      fontWeight: "bold",
-    },
-    footer: {
-      padding: 15,
-      backgroundColor: colors.card,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
+    sizeText: { fontSize: 16, color: colors.text },
+    selectedSizeText: { color: colors.primary, fontWeight: "bold" },
+    footer: { padding: 15, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border },
     addToBagButton: {
       backgroundColor: colors.primary,
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 15,
-      borderRadius: 10,
-      gap: 10,
+      flexDirection: "row", justifyContent: "center", alignItems: "center",
+      padding: 15, borderRadius: 10, gap: 10,
     },
-    addToBagText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "bold",
+    addToBagText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+    emptyText: { fontSize: 16, color: colors.text, textAlign: "center", marginTop: 50 },
+    // ── You May Also Like ──
+    recsSection: { paddingTop: 8, paddingBottom: 20 },
+    recsSectionHeader: {
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      paddingHorizontal: 16, marginBottom: 12,
     },
-    emptyText: {
-      fontSize: 16,
-      color: colors.text,
-      textAlign: "center",
-      marginTop: 50,
+    recsSectionTitle: { fontSize: 12, fontWeight: "800", color: colors.text, letterSpacing: 1.5 },
+    recsSectionSub: { fontSize: 11, color: colors.subtext, marginTop: 2 },
+    recsViewAll: { flexDirection: "row", alignItems: "center", gap: 2 },
+    recsViewAllText: { fontSize: 12, fontWeight: "700", color: colors.primary },
+    recsScroll: { paddingHorizontal: 14, gap: 12 },
+    recCard: {
+      width: 140,
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      overflow: "hidden",
+      borderWidth: 1, borderColor: colors.border,
     },
+    recImage: { width: "100%", height: 160 },
+    recBadge: {
+      position: "absolute", top: 8, left: 8,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+    },
+    recBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
+    recInfo: { padding: 8 },
+    recBrand: { fontSize: 10, fontWeight: "700", color: colors.subtext, textTransform: "uppercase", letterSpacing: 0.5 },
+    recName: { fontSize: 12, color: colors.text, fontWeight: "500", marginTop: 2, lineHeight: 16 },
+    recPrice: { fontSize: 13, fontWeight: "800", color: colors.text, marginTop: 4 },
   });

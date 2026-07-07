@@ -99,6 +99,53 @@ const webStyles = `
     border: 1px solid rgba(255, 255, 255, 0.07) !important;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
   }
+
+  /* ── Banner carousel (web) ── */
+  .banner-reel {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    height: 100%;
+    /* hide scrollbar across all engines */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .banner-reel::-webkit-scrollbar { display: none; }
+
+  .banner-slide {
+    min-width: 100%;
+    height: 100%;
+    scroll-snap-align: start;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .banner-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* remove browser's quirky image rendering on web export */
+    image-rendering: auto;
+  }
+
+  .banner-caption {
+    position: absolute;
+    bottom: 32px;
+    left: 26px;
+    right: 26px;
+    animation: bannerFadeUp 0.5s ease both;
+  }
+
+  @keyframes bannerFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 `;
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
