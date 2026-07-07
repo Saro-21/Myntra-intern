@@ -75,6 +75,7 @@ router.post("/", async (req, res) => {
         shippingAddress: req.body.shippingAddress,
         paymentMethod: req.body.paymentMethod,
         tracking: genrateRandomTracking(),
+      });
       await newOrder.save();
       await Bag.deleteMany({ userId: userid, savedForLater: false });
 
