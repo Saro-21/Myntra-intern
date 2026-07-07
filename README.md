@@ -2,7 +2,7 @@
 
 A feature-rich Myntra clone built with **React Native (Expo)** for the frontend and a **Node.js/Express/MongoDB** backend — deployed as **Vercel Serverless Functions**.
 
-🌐 **Live URL:** [https://myntra-pearl.vercel.app](https://myntra-pearl.vercel.app)
+🌐 **Live URL:** [https://web-developement-intern.vercel.app](https://web-developement-intern.vercel.app)
 
 ---
 
@@ -82,4 +82,4 @@ npm run web       # Opens http://localhost:8081
 
 - **Frontend + API:** Deployed on [Vercel](https://vercel.com) — serverless functions handle all backend logic
 - **Database:** [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier)
-- Live: [https://myntra-pearl.vercel.app](https://myntra-pearl.vercel.app)
+- Live: [https://web-developement-intern.vercel.app](https://web-developement-intern.vercel.app)

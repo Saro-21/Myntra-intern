@@ -19,6 +19,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
   origin: [
+    "https://web-developement-intern.vercel.app",
     "https://myntra-pearl.vercel.app",
     "http://localhost:8081",
     "http://localhost:19006",

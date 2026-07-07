@@ -5,7 +5,7 @@
 //
 // Priority 2 — Production (Web & Native):
 //   Uses the Render backend directly: https://web-developement-intern.onrender.com
-//   CORS is configured on Render to allow requests from https://myntra-pearl.vercel.app
+//   CORS is configured on Render to allow requests from https://web-developement-intern.vercel.app
 //
 export const RENDER_BACKEND_URL = "https://web-developement-intern.onrender.com";
 
