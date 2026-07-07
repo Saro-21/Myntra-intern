@@ -184,15 +184,6 @@ export default function Profile() {
           <Text style={styles.headerTitle}>My Profile</Text>
           <Text style={styles.headerSubtitle}>Manage your account & orders</Text>
         </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7}>
-            <Bell size={22} color={colors.text} />
-            <View style={styles.bellBadge} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.7} onPress={() => router.push("/settings")}>
-            <Settings size={22} color={colors.text} />
-          </TouchableOpacity>
-        </View>
       </View>
 
       <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
@@ -242,22 +233,6 @@ export default function Profile() {
             </View>
             <Text style={styles.statCountVal}>{stats.wishlist}</Text>
             <Text style={styles.statNameLabel}>Wishlist</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.statBox}>
-            <View style={[styles.statIconBg, { backgroundColor: "#faf5ff" }]}>
-              <Star size={20} color="#a855f7" />
-            </View>
-            <Text style={styles.statCountVal}>12</Text>
-            <Text style={styles.statNameLabel}>Reviews</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.statBox}>
-            <View style={[styles.statIconBg, { backgroundColor: "#f0fdf4" }]}>
-              <Ticket size={20} color="#22c55e" />
-            </View>
-            <Text style={styles.statCountVal}>6</Text>
-            <Text style={styles.statNameLabel}>Coupons</Text>
           </TouchableOpacity>
         </View>
 
@@ -343,31 +318,7 @@ export default function Profile() {
           ))}
         </ScrollView>
 
-        {/* Account Settings Section */}
-        <Text style={styles.menuGroupTitle}>Account Settings</Text>
-        <View style={styles.settingsGroupCard}>
-          <TouchableOpacity style={styles.settingsItem} onPress={() => router.push("/profile")}>
-            <View style={styles.settingsIconBg}>
-              <User size={18} color="#ec4899" />
-            </View>
-            <View style={styles.settingsItemTextWrap}>
-              <Text style={styles.settingsItemTitle}>Personal Information</Text>
-              <Text style={styles.settingsItemSubtitle}>Manage your personal details</Text>
-            </View>
-            <ChevronRight size={18} color={colors.subtext} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.settingsItem} onPress={() => router.push("/settings")}>
-            <View style={styles.settingsIconBg}>
-              <Lock size={18} color="#ec4899" />
-            </View>
-            <View style={styles.settingsItemTextWrap}>
-              <Text style={styles.settingsItemTitle}>Change Password</Text>
-              <Text style={styles.settingsItemSubtitle}>Update your account password</Text>
-            </View>
-            <ChevronRight size={18} color={colors.subtext} />
-          </TouchableOpacity>
-        </View>
+
 
         {renderThemeSelector()}
 
