@@ -97,6 +97,27 @@ export default function Home() {
   const webBannerRef = useRef<any>(null); // div ref for web
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeBannerRef = useRef(0); // shadow ref so interval closure has latest value
+
+  // Start auto-scroll banner
+  useEffect(() => {
+    const tick = () => {
+      const next = (activeBannerRef.current + 1) % bannerSlides.length;
+      activeBannerRef.current = next;
+      setActiveBanner(next);
+      if (Platform.OS === "web") {
+        // Scroll the web div smoothly
+        const el = webBannerRef.current;
+        if (el) el.scrollTo({ left: next * el.offsetWidth, behavior: "smooth" });
+      } else {
+        // Scroll the FlatList on native
+        bannerFlatListRef.current?.scrollToIndex({ index: next, animated: true });
+      }
+    };
+    intervalRef.current = setInterval(tick, 3500);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -137,6 +158,31 @@ export default function Home() {
       </View>
     </View>
   );
+
+  // Helper: jump to a specific banner slide (dot press)
+  const goToBanner = (idx: number) => {
+    activeBannerRef.current = idx;
+    setActiveBanner(idx);
+    if (Platform.OS === "web") {
+      const el = webBannerRef.current;
+      if (el) el.scrollTo({ left: idx * el.offsetWidth, behavior: "smooth" });
+    } else {
+      bannerFlatListRef.current?.scrollToIndex({ index: idx, animated: true });
+    }
+    // Reset timer so it counts from this slide
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      const next = (activeBannerRef.current + 1) % bannerSlides.length;
+      activeBannerRef.current = next;
+      setActiveBanner(next);
+      if (Platform.OS === "web") {
+        const el = webBannerRef.current;
+        if (el) el.scrollTo({ left: next * el.offsetWidth, behavior: "smooth" });
+      } else {
+        bannerFlatListRef.current?.scrollToIndex({ index: next, animated: true });
+      }
+    }, 3500);
+  };
 
   // Web-only inline CSS banner carousel using scroll-snap
   const webBannerInlineStyle: React.CSSProperties = {
@@ -215,8 +261,8 @@ export default function Home() {
               const el = e.currentTarget;
               const idx = Math.round(el.scrollLeft / el.offsetWidth);
               if (idx >= 0 && idx < bannerSlides.length && idx !== activeBannerRef.current) {
-                setActiveBanner(idx);
                 activeBannerRef.current = idx;
+                setActiveBanner(idx);
               }
             }}
           >
@@ -289,10 +335,11 @@ export default function Home() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onScroll={(e) => {
+            onMomentumScrollEnd={(e) => {
               const offsetX = e.nativeEvent.contentOffset.x;
               const idx = Math.round(offsetX / bannerWidth);
-              if (idx !== activeBanner && idx >= 0 && idx < bannerSlides.length) {
+              if (idx !== activeBannerRef.current && idx >= 0 && idx < bannerSlides.length) {
+                activeBannerRef.current = idx;
                 setActiveBanner(idx);
               }
             }}
@@ -304,13 +351,18 @@ export default function Home() {
             })}
           />
         )}
-        {/* Dots */}
+        {/* Dots — clickable */}
         <View style={styles.bannerDots}>
           {bannerSlides.map((_, i) => (
-            <View
+            <TouchableOpacity
               key={i}
-              style={[styles.bannerDot, i === activeBanner && styles.bannerDotActive]}
-            />
+              onPress={() => goToBanner(i)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[styles.bannerDot, i === activeBanner && styles.bannerDotActive]}
+              />
+            </TouchableOpacity>
           ))}
         </View>
       </View>
