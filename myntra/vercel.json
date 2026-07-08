@@ -22,8 +22,8 @@
     { "source": "/recently-viewed",  "destination": "/index.html" },
     { "source": "/notifications",    "destination": "/index.html" },
     { "source": "/login",            "destination": "/index.html" },
-    { "source": "/signup",           "destination": "/index.html" }
+    { "source": "/signup",           "destination": "/index.html" },
+    { "source": "/payments",         "destination": "/index.html" },
+    { "source": "/addresses",        "destination": "/index.html" }
   ]
-
 }
-
