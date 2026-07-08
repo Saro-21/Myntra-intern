@@ -160,6 +160,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      import("@/utils/notifications").then(({ requestNotificationPermission }) => {
+        requestNotificationPermission().catch(console.error);
+      });
     }
   }, [loaded]);
 

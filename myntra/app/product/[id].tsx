@@ -228,6 +228,12 @@ export default function ProductDetails() {
           savedForLater: true
         });
         setIsSavedForLater(true);
+        import("@/utils/notifications").then(({ showWebNotification }) => {
+          showWebNotification({
+            title: "Saved for Later ❤️",
+            body: `${product.name} has been saved for later.`,
+          });
+        });
         Toast.show({
           type: 'success',
           text1: 'Saved for Later',
@@ -261,6 +267,12 @@ export default function ProductDetails() {
         productId: product._id,
         size: selectedSize,
         quantity: 1,
+      });
+      import("@/utils/notifications").then(({ showWebNotification }) => {
+        showWebNotification({
+          title: "Added to Bag 🛍️",
+          body: `${product.name} has been added to your bag.`,
+        });
       });
       Toast.show({
         type: 'success',

@@ -99,10 +99,20 @@ export default function Checkout() {
     try {
       setLoading(true);
       setOrderError("");
-      await axios.post(`${API_URL}/order?action=create&userId=${user._id}`, {
+      const res = await axios.post(`${API_URL}/order?action=create&userId=${user._id}`, {
         shippingAddress,
         paymentMethod,
       });
+      
+      const orderNum = res.data.tracking?.number?.replace("TRK", "MYN") || `MYN${Math.floor(1000 + Math.random() * 9000)}`;
+
+      import("@/utils/notifications").then(({ showWebNotification }) => {
+        showWebNotification({
+          title: "Order Placed Successfully! 🎉",
+          body: `Your order #${orderNum} has been received and is being processed by our warehouse.`,
+        });
+      });
+
       Toast.show({
         type: 'success',
         text1: 'Order Placed Successfully!',

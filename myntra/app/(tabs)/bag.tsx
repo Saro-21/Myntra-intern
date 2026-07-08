@@ -102,6 +102,12 @@ export default function Bag() {
         text2: 'Item moved to saved for later list',
         position: 'top',
       });
+      import("@/utils/notifications").then(({ showWebNotification }) => {
+        showWebNotification({
+          title: "Saved for Later ❤️",
+          body: `${item.productId?.name || "Item"} has been saved for later.`,
+        });
+      });
       await fetchBag();
     } catch (err: any) {
       if (err?.response?.status === 409) {
