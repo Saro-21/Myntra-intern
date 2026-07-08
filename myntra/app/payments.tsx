@@ -180,6 +180,67 @@ export default function Payments() {
     }
   };
 
+  // ── CSV export single receipt ──────────────────────────────────────────────
+  const exportSingleReceiptCsv = (txn: Transaction) => {
+    if (!txn) return;
+    const headers = ["Brand", "Product Name", "Size", "Quantity", "Unit Price (INR)", "Line Total (INR)"];
+    
+    // Flatten quantities so that if ordered same item multiple times, it shows as separate rows as requested
+    const itemRows: any[] = [];
+    if (txn.items && txn.items.length > 0) {
+      txn.items.forEach(item => {
+        const qty = item.quantity || 1;
+        for (let i = 0; i < qty; i++) {
+          itemRows.push([
+            `"${item.brand || ""}"`,
+            `"${item.name || ""}"`,
+            `"${item.size || "—"}"`,
+            1,
+            item.price || 0,
+            item.price || 0
+          ]);
+        }
+      });
+    } else {
+      itemRows.push([
+        `""`,
+        `"Online Retail Purchase"`,
+        `"—"`,
+        1,
+        txn.amount,
+        txn.amount
+      ]);
+    }
+
+    const metadataRows = [
+      ["Transaction ID", txn.transactionId],
+      ["Status", txn.status.toUpperCase()],
+      ["Payment Mode", txn.paymentMethod.toUpperCase()],
+      ["Date & Time", formatDate(txn.createdAt)],
+      ["Shipping Address", `"${txn.shippingAddress || "N/A"}"`],
+      [],
+      headers
+    ];
+
+    const allRows = [...metadataRows, ...itemRows];
+    allRows.push([], ["Total Paid", "", "", "", "", txn.amount]);
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + allRows.map(e => e.join(",")).join("\n");
+      
+    if (Platform.OS === "web") {
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `receipt_${txn.transactionId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      Linking.openURL(encodeURI(csvContent)).catch(console.error);
+    }
+  };
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const formatDate = (d: string) => {
     try {
@@ -445,10 +506,10 @@ export default function Payments() {
                 <TouchableOpacity
                   style={[styles.downloadBtn, { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.primary, marginTop: 10 }]}
                   activeOpacity={0.8}
-                  onPress={handleExport}
+                  onPress={() => exportSingleReceiptCsv(receiptTxn)}
                 >
                   <FileText size={18} color={colors.primary} />
-                  <Text style={[styles.downloadBtnText, { color: colors.primary }]}>Export All Transactions as CSV</Text>
+                  <Text style={[styles.downloadBtnText, { color: colors.primary }]}>Download CSV Receipt</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 16 }} />
