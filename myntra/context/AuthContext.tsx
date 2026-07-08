@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await axios.post(`${API_URL}/user/login`, { email, password });
+      const res = await axios.post(`${API_URL}/user?action=login`, { email, password });
       const data = res.data.user;
       if (!data || !data.fullName) {
         throw new Error(res.data.message || "Login failed");
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
   const Signup = async (fullName: string, email: string, password: string) => {
     try {
-      const res = await axios.post(`${API_URL}/user/signup`, { fullName, email, password });
+      const res = await axios.post(`${API_URL}/user?action=signup`, { fullName, email, password });
       const data = res.data.user;
       if (!data || !data.fullName) {
         throw new Error(res.data.message || "Signup failed");
