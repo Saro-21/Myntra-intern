@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   FlatList,
   Platform,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Search, ChevronRight, Heart, Bell, TrendingUp } from "lucide-react-native";
@@ -50,6 +51,8 @@ const deals = [
     subtitle: "Best Prices",
     badge: "HOT",
     image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&auto=format&fit=crop",
+    route: "/categories",
+    params: { sort: "price_asc" },
   },
   {
     id: 2,
@@ -57,6 +60,8 @@ const deals = [
     subtitle: "Limited Time",
     badge: "SALE",
     image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=400&auto=format&fit=crop",
+    route: "/categories",
+    params: { deal: "sale" },
   },
   {
     id: 3,
@@ -64,6 +69,8 @@ const deals = [
     subtitle: "Just Dropped",
     badge: "NEW",
     image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&auto=format&fit=crop",
+    route: "/categories",
+    params: { sort: "newest" },
   },
 ];
 
@@ -376,24 +383,34 @@ export default function Home() {
           </View>
         </View>
         <View style={styles.dealsRow}>
-          {deals.map((deal) => (
-            <TouchableOpacity
-              key={deal.id}
-              style={styles.dealCard}
-              className={isWeb ? "hover-grow" : undefined}
-              activeOpacity={0.9}
-            >
-              <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
-              <View style={styles.dealOverlay} />
-              <View style={styles.dealBadge}>
-                <Text style={styles.dealBadgeText}>{deal.badge}</Text>
-              </View>
-              <View style={styles.dealContent}>
-                <Text style={styles.dealTitle}>{deal.title}</Text>
-                <Text style={styles.dealSubtitle}>{deal.subtitle}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {deals.map((deal) => {
+            const scaleAnim = new Animated.Value(1);
+            const onPressIn = () => Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true }).start();
+            const onPressOut = () => Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
+            return (
+              <TouchableOpacity
+                key={deal.id}
+                style={styles.dealCard}
+                className={isWeb ? "hover-grow" : undefined}
+                activeOpacity={0.85}
+                onPressIn={onPressIn}
+                onPressOut={onPressOut}
+                onPress={() => router.push({ pathname: deal.route as any, params: deal.params })}
+              >
+                <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: scaleAnim }] }]}>
+                  <Image source={{ uri: deal.image }} style={styles.dealImage} resizeMode="cover" />
+                  <View style={styles.dealOverlay} />
+                </Animated.View>
+                <View style={styles.dealBadge}>
+                  <Text style={styles.dealBadgeText}>{deal.badge}</Text>
+                </View>
+                <View style={styles.dealContent}>
+                  <Text style={styles.dealTitle}>{deal.title}</Text>
+                  <Text style={styles.dealSubtitle}>{deal.subtitle}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 

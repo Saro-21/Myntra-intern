@@ -441,6 +441,16 @@ export default function Payments() {
                   <Text style={styles.downloadBtnText}>Download PDF Receipt</Text>
                 </TouchableOpacity>
 
+                {/* Export CSV button */}
+                <TouchableOpacity
+                  style={[styles.downloadBtn, { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.primary, marginTop: 10 }]}
+                  activeOpacity={0.8}
+                  onPress={handleExport}
+                >
+                  <FileText size={18} color={colors.primary} />
+                  <Text style={[styles.downloadBtnText, { color: colors.primary }]}>Export All Transactions as CSV</Text>
+                </TouchableOpacity>
+
                 <View style={{ height: 16 }} />
               </ScrollView>
             )}

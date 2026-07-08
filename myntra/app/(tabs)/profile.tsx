@@ -61,6 +61,7 @@ export default function Profile() {
   });
   const [loadingStats, setLoadingStats] = useState(false);
   const [recs, setRecs] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   const styles = getStyles(theme, colors);
 
@@ -70,10 +71,14 @@ export default function Profile() {
       setLoadingStats(true);
       const wlRes = await axios.get(`${API_URL}/wishlist?userId=${user._id}`);
       const ordRes = await axios.get(`${API_URL}/order?userId=${user._id}`);
+      const ordList = Array.isArray(ordRes.data) ? ordRes.data : [];
+      // Sort newest first
+      ordList.sort((a: any, b: any) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+      setRecentOrders(ordList.slice(0, 3));
       
       setStats({
         wishlist: Array.isArray(wlRes.data) ? wlRes.data.length : 0,
-        orders: Array.isArray(ordRes.data) ? ordRes.data.length : 0,
+        orders: ordList.length,
         history: recentlyViewed ? recentlyViewed.length : 0,
       });
 
@@ -271,25 +276,43 @@ export default function Profile() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.recentOrderCard} activeOpacity={0.9} onPress={() => router.push("/orders")}>
-          <Image
-            source={{ uri: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&auto=format&fit=crop" }}
-            style={styles.recentOrderImg}
-          />
-          <View style={styles.recentOrderInfo}>
-            <Text style={styles.recentOrderBrand}>Adidas Originals</Text>
-            <Text style={styles.recentOrderName}>Men White Sneakers</Text>
-            <Text style={styles.recentOrderSpecs}>Size: 9  •  Qty: 1</Text>
-            <Text style={styles.recentOrderPrice}>₹3,599</Text>
-          </View>
-          <View style={styles.recentOrderRight}>
-            <View style={styles.deliveredBadge}>
-              <Text style={styles.deliveredBadgeText}>Delivered</Text>
+        {recentOrders.length > 0 ? recentOrders.map((order: any) => {
+          const firstItem = order.items?.[0];
+          const imgUri = firstItem?.productId?.images?.[0] || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&auto=format&fit=crop";
+          const brand = firstItem?.productId?.brand || "Order";
+          const name = firstItem?.productId?.name || `#${order._id?.slice(-6)}`;
+          const size = firstItem?.size || "—";
+          const qty = order.items?.length || 1;
+          const price = order.total || firstItem?.price || 0;
+          const status = order.status || "Processing";
+          const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : order.date;
+          const statusColor = status === "Delivered" ? "#22c55e" : status === "Processing" ? "#3b82f6" : "#f59e0b";
+          return (
+            <TouchableOpacity key={order._id} style={styles.recentOrderCard} activeOpacity={0.9} onPress={() => router.push("/orders")}>
+              <Image source={{ uri: imgUri }} style={styles.recentOrderImg} />
+              <View style={styles.recentOrderInfo}>
+                <Text style={styles.recentOrderBrand}>{brand}</Text>
+                <Text style={styles.recentOrderName} numberOfLines={1}>{name}</Text>
+                <Text style={styles.recentOrderSpecs}>Size: {size}  •  Qty: {qty}</Text>
+                <Text style={styles.recentOrderPrice}>₹{price.toLocaleString("en-IN")}</Text>
+              </View>
+              <View style={styles.recentOrderRight}>
+                <View style={[styles.deliveredBadge, { backgroundColor: statusColor + "22", borderColor: statusColor }]}>
+                  <Text style={[styles.deliveredBadgeText, { color: statusColor }]}>{status}</Text>
+                </View>
+                <Text style={styles.deliveredDateText}>{date}</Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtext} style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+          );
+        }) : (
+          <TouchableOpacity style={styles.recentOrderCard} activeOpacity={0.9} onPress={() => router.push("/orders")}>
+            <View style={{ flex: 1, alignItems: "center", paddingVertical: 16 }}>
+              <Package size={28} color={colors.subtext} />
+              <Text style={[styles.recentOrderName, { marginTop: 8 }]}>No orders yet</Text>
             </View>
-            <Text style={styles.deliveredDateText}>18 May, 2024</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtext} style={{ marginLeft: 8 }} />
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
 
         {/* Recommended For You Section */}
         <View style={styles.sectionHeaderRow}>
