@@ -200,14 +200,8 @@ export default function Bag() {
   // ── Cart Item card ────────────────────────────────────────────────────────
   const CartItemCard = ({ item, saved = false }: { item: any; saved?: boolean }) => {
     const hasConflict = conflictItem === item._id;
-    return (
-      <View style={[styles.bagItem, saved && styles.savedItemCard]}>
-        {saved && (
-          <View style={styles.savedBadge}>
-            <Bookmark size={10} color={colors.primary} />
-            <Text style={styles.savedBadgeText}>SAVED FOR LATER</Text>
-          </View>
-        )}
+    const content = (
+      <>
         {hasConflict && (
           <View style={styles.conflictBanner}>
             <AlertTriangle size={14} color="#f59e0b" />
@@ -264,16 +258,46 @@ export default function Bag() {
             </View>
           ) : (
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.moveToCartBtn} onPress={() => handleMoveToCart(item)}>
+              <TouchableOpacity
+                style={styles.moveToCartBtn}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleMoveToCart(item);
+                }}
+              >
                 <ShoppingBag size={13} color={colors.primary} />
                 <Text style={styles.moveToCartText}>Move to Cart</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconAction} onPress={() => handleDelete(item._id)}>
+              <TouchableOpacity
+                style={styles.iconAction}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleDelete(item._id);
+                }}
+              >
                 <BookmarkX size={16} color="#ff4d6d" />
               </TouchableOpacity>
             </View>
           )}
         </View>
+      </>
+    );
+
+    if (saved) {
+      return (
+        <TouchableOpacity
+          style={[styles.bagItem, styles.savedItemCard]}
+          activeOpacity={0.85}
+          onPress={() => router.push(`/product/${item.productId?._id}`)}
+        >
+          {content}
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.bagItem}>
+        {content}
       </View>
     );
   };
@@ -294,12 +318,6 @@ export default function Bag() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Coupon strip */}
-        <TouchableOpacity style={styles.couponStrip} activeOpacity={0.8}>
-          <Tag size={16} color={colors.primary} />
-          <Text style={styles.couponText}>Apply coupon / promo code</Text>
-          <ChevronRight size={16} color={colors.subtext} />
-        </TouchableOpacity>
 
         {/* ── Active Cart Items ─────────────────────────────────────────── */}
         {activeItems.length > 0 && (

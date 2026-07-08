@@ -15,26 +15,6 @@ import {
 } from "react-native";
 import { useTheme } from "@/context/ThemeContext";
 
-// const wishlistItems = [
-//   {
-//     id: 1,
-//     name: "Premium Cotton T-Shirt",
-//     brand: "H&M",
-//     price: "₹799",
-//     discount: "40% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&auto=format&fit=crop",
-//   },
-//   {
-//     id: 2,
-//     name: "Slim Fit Denim Jacket",
-//     brand: "Levis",
-//     price: "₹2999",
-//     discount: "30% OFF",
-//     image:
-//       "https://images.unsplash.com/photo-1523205771623-e0faa4d2813d?w=500&auto=format&fit=crop",
-//   },
-// ];
 export default function Wishlist() {
   const router = useRouter();
   const { user } = useAuth();
@@ -47,6 +27,7 @@ export default function Wishlist() {
   useEffect(() => {
     fetchproduct();
   }, [user]);
+
   const fetchproduct = async () => {
     if (user) {
       try {
@@ -55,21 +36,21 @@ export default function Wishlist() {
         setwishlist(bag.data);
       } catch (error) {
         console.log(error);
-        setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
     }
   };
-  const handledelete=async(itemid:any)=>{
+
+  const handledelete = async (itemid: any) => {
     try {
-      await axios.delete(`${API_URL}/wishlist?itemId=${itemid}`)
+      await axios.delete(`${API_URL}/wishlist?itemId=${itemid}`);
       fetchproduct();
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
-   
-  }
+  };
+
   if (!user) {
     return (
       <View style={styles.container}>
@@ -91,6 +72,7 @@ export default function Wishlist() {
       </View>
     );
   }
+
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
@@ -98,6 +80,7 @@ export default function Wishlist() {
       </View>
     );
   }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -105,9 +88,14 @@ export default function Wishlist() {
       </View>
 
       <ScrollView style={styles.content}>
-        {wishlist?.map((item:any) => (
-          <View key={item._id} style={styles.wishlistItem}>
-            <Image  source={{ uri: item.productId.images[0] }} style={styles.itemImage} />
+        {wishlist?.map((item: any) => (
+          <TouchableOpacity
+            key={item._id}
+            style={styles.wishlistItem}
+            activeOpacity={0.85}
+            onPress={() => router.push(`/product/${item.productId._id}`)}
+          >
+            <Image source={{ uri: item.productId.images[0] }} style={styles.itemImage} />
             <View style={styles.itemInfo}>
               <Text style={styles.brandName}>{item.productId.brand}</Text>
               <Text style={styles.itemName}>{item.productId.name}</Text>
@@ -116,10 +104,16 @@ export default function Wishlist() {
                 <Text style={styles.discount}>{item.productId.discount}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.removeButton} onPress={()=>handledelete(item._id)}>
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                handledelete(item._id);
+              }}
+            >
               <Trash2 size={24} color={colors.primary} />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
@@ -183,10 +177,7 @@ const getStyles = (colors: any) =>
       borderRadius: 10,
       marginBottom: 15,
       shadowColor: colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 3.84,
       elevation: 5,
