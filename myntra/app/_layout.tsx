@@ -16,6 +16,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { RecentlyViewedProvider } from "@/context/RecentlyViewedContext";
 import { ThemeProvider as AppThemeProvider, useTheme } from "@/context/ThemeContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import Toast from "react-native-toast-message";
 
 // Global web-only stylesheet — god-level design system
 const webStyles = `
@@ -206,6 +207,7 @@ function RootLayoutContent() {
               <Stack.Screen name="(auth)" />
             </Stack>
             <StatusBar style={theme === "dark" ? "light" : "dark"} />
+            <Toast />
           </RecentlyViewedProvider>
         </NotificationProvider>
       </AuthProvider>

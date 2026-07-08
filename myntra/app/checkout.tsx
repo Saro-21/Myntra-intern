@@ -3,6 +3,7 @@ import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useRouter } from "expo-router";
 import { CreditCard, MapPin, Truck, Smartphone } from "lucide-react-native";
+import Toast from "react-native-toast-message";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -101,6 +102,13 @@ export default function Checkout() {
       await axios.post(`${API_URL}/order?action=create&userId=${user._id}`, {
         shippingAddress,
         paymentMethod,
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Order Placed Successfully!',
+        text2: 'Your payment is confirmed and the order is placed.',
+        position: 'top',
+        visibilityTime: 4000,
       });
       router.push("/orders");
     } catch (error: any) {

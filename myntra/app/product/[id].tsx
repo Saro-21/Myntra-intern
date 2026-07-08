@@ -15,9 +15,10 @@ import { Heart, ShoppingBag, ChevronRight, Bookmark } from "lucide-react-native"
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRecentlyViewed } from "@/context/RecentlyViewedContext";
+import { useTheme } from "@/context/ThemeContext";
+import Toast from "react-native-toast-message";
 import axios from "axios";
 import API_URL from "@/constants/Api";
-import { useTheme } from "@/context/ThemeContext";
 
 const isWeb = Platform.OS === "web";
 
@@ -211,7 +212,12 @@ export default function ProductDetails() {
         if (savedItem) {
           await axios.delete(`${API_URL}/bag?itemId=${savedItem._id}`);
           setIsSavedForLater(false);
-          alert("Removed from Saved Items!");
+          Toast.show({
+            type: 'info',
+            text1: 'Removed',
+            text2: 'Item removed from Saved Items',
+            position: 'top',
+          });
         }
       } else {
         await axios.post(`${API_URL}/bag`, {
@@ -222,7 +228,12 @@ export default function ProductDetails() {
           savedForLater: true
         });
         setIsSavedForLater(true);
-        alert("Saved for later!");
+        Toast.show({
+          type: 'success',
+          text1: 'Saved for Later',
+          text2: 'Item has been saved for later',
+          position: 'top',
+        });
       }
     } catch (error) {
       console.log("Failed to save for later:", error);
@@ -235,8 +246,12 @@ export default function ProductDetails() {
     }
 
     if (!selectedSize) {
-      // In a real app, show a proper error message
-      alert("Please select a size");
+      Toast.show({
+        type: 'error',
+        text1: 'Select Size',
+        text2: 'Please select a size before adding to bag',
+        position: 'top',
+      });
       return;
     }
     try {
@@ -247,7 +262,12 @@ export default function ProductDetails() {
         size: selectedSize,
         quantity: 1,
       });
-      alert("Added to bag!");
+      Toast.show({
+        type: 'success',
+        text1: 'Added to Bag',
+        text2: 'Item has been added to your bag',
+        position: 'top',
+      });
       router.push("/bag");
     } catch (error) {
       console.log(error);

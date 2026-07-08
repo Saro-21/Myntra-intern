@@ -20,6 +20,7 @@ import axios from "axios";
 import API_URL from "@/constants/Api";
 import { useTheme } from "@/context/ThemeContext";
 import { useWindowDimensions } from "react-native";
+import Toast from "react-native-toast-message";
 
 const isWeb = Platform.OS === "web";
 
@@ -94,6 +95,12 @@ export default function Bag() {
       await axios.patch(`${API_URL}/bag?action=save-for-later`, {
         itemId: item._id,
         expectedVersion: item.__v ?? 0,
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Saved for Later',
+        text2: 'Item moved to saved for later list',
+        position: 'top',
       });
       await fetchBag();
     } catch (err: any) {
