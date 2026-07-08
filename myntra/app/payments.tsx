@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Linking, Platform, TextInput,
+  ActivityIndicator, Linking, Platform,
   Modal, FlatList, Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
   ChevronLeft, CreditCard, FileText, CheckCircle2, XCircle,
-  AlertCircle, ArrowUpRight, Filter, ChevronDown, Search,
+  AlertCircle, ArrowUpRight, ChevronDown,
   Download, RefreshCw, X, Package, ArrowUpDown, Clock3,
+  Receipt,
 } from "lucide-react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -69,6 +70,9 @@ export default function Payments() {
 
   // Expanded rows
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Receipt modal
+  const [receiptTxn, setReceiptTxn] = useState<Transaction | null>(null);
 
   // Fallback orders when no transactions exist yet
   const [fallbackOrders, setFallbackOrders] = useState<Transaction[]>([]);
@@ -142,11 +146,19 @@ export default function Payments() {
 
   useEffect(() => { fetchTransactions(true); }, [fetchTransactions]);
 
-  // ── Receipt open ────────────────────────────────────────────────────────────
-  const handleReceipt = (receiptUrl?: string) => {
+  // ── Receipt modal: open preview, then optionally download PDF ───────────
+  const handleReceipt = (txn: Transaction) => {
+    setReceiptTxn(txn);
+  };
+
+  const downloadPdf = (receiptUrl?: string) => {
     if (!receiptUrl) return;
     if (Platform.OS === "web") {
-      (window as any).open(receiptUrl, "_blank");
+      const a = document.createElement("a");
+      a.href = receiptUrl;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.click();
     } else {
       Linking.openURL(receiptUrl).catch(console.error);
     }
@@ -298,10 +310,10 @@ export default function Payments() {
             <TouchableOpacity
               style={styles.receiptBtn}
               activeOpacity={0.75}
-              onPress={() => handleReceipt(txn.receiptUrl)}
+              onPress={() => handleReceipt(txn)}
             >
-              <FileText size={15} color="#fff" />
-              <Text style={styles.receiptBtnText}>Download PDF Receipt</Text>
+              <Receipt size={15} color="#fff" />
+              <Text style={styles.receiptBtnText}>View &amp; Download Receipt</Text>
               <ArrowUpRight size={13} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -313,6 +325,129 @@ export default function Payments() {
   // ── Main render ─────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
+      {/* ── Receipt Preview Modal ── */}
+      <Modal
+        visible={!!receiptTxn}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReceiptTxn(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Receipt size={20} color={colors.primary} />
+                <Text style={styles.modalTitle}>Receipt Preview</Text>
+              </View>
+              <TouchableOpacity onPress={() => setReceiptTxn(null)} style={styles.modalCloseBtn}>
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {receiptTxn && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+
+                {/* Myntra branding strip */}
+                <View style={styles.receiptBrandStrip}>
+                  <Text style={styles.receiptBrandText}>MYNTRA</Text>
+                  <Text style={styles.receiptBrandSub}>Official Purchase Receipt</Text>
+                </View>
+
+                {/* Status banner */}
+                <View style={[styles.statusBanner, { backgroundColor: getStatusBg(receiptTxn.status) }]}>
+                  {getStatusIcon(receiptTxn.status)}
+                  <Text style={[styles.statusBannerText, { color: getStatusColor(receiptTxn.status) }]}>
+                    {receiptTxn.status.toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Key details grid */}
+                <View style={styles.detailGrid}>
+                  <View style={styles.detailCell}>
+                    <Text style={styles.detailLabel}>Transaction ID</Text>
+                    <Text style={styles.detailValue}>{receiptTxn.transactionId}</Text>
+                  </View>
+                  <View style={styles.detailCell}>
+                    <Text style={styles.detailLabel}>Amount Paid</Text>
+                    <Text style={[styles.detailValue, { color: colors.primary, fontSize: 20, fontWeight: "900" }]}>
+                      ₹{receiptTxn.amount.toLocaleString("en-IN")}
+                    </Text>
+                  </View>
+                  <View style={styles.detailCell}>
+                    <Text style={styles.detailLabel}>Payment Mode</Text>
+                    <View style={styles.methodTag}>
+                      <CreditCard size={12} color={colors.primary} />
+                      <Text style={styles.methodTagText}>{receiptTxn.paymentMethod.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.detailCell}>
+                    <Text style={styles.detailLabel}>Date &amp; Time</Text>
+                    <Text style={styles.detailValue}>{formatDate(receiptTxn.createdAt)}</Text>
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View style={styles.receiptDivider} />
+
+                {/* Order items */}
+                {receiptTxn.items && receiptTxn.items.length > 0 && (
+                  <View>
+                    <Text style={styles.receiptSectionTitle}>ORDER ITEMS</Text>
+                    {receiptTxn.items.map((item, idx) => (
+                      <View key={idx} style={styles.receiptItemRow}>
+                        {item.image ? (
+                          <Image source={{ uri: item.image }} style={styles.receiptItemImg} />
+                        ) : (
+                          <View style={[styles.receiptItemImg, { backgroundColor: colors.inputBackground, justifyContent: "center", alignItems: "center" }]}>
+                            <Package size={14} color={colors.subtext} />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          {item.brand ? <Text style={styles.receiptItemBrand}>{item.brand}</Text> : null}
+                          <Text style={styles.receiptItemName}>{item.name}</Text>
+                          <Text style={styles.receiptItemMeta}>Size: {item.size}  ·  Qty: {item.quantity}  ·  ₹{item.price.toLocaleString("en-IN")} each</Text>
+                        </View>
+                        <Text style={styles.receiptItemTotal}>₹{item.lineTotal.toLocaleString("en-IN")}</Text>
+                      </View>
+                    ))}
+
+                    <View style={styles.receiptTotalRow}>
+                      <Text style={styles.receiptTotalLabel}>Total Paid</Text>
+                      <Text style={styles.receiptTotalValue}>₹{receiptTxn.amount.toLocaleString("en-IN")}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Shipping */}
+                {receiptTxn.shippingAddress ? (
+                  <Text style={styles.receiptShipping}>📍 Delivered to: {receiptTxn.shippingAddress}</Text>
+                ) : null}
+
+                <View style={styles.receiptDivider} />
+
+                {/* Footer note */}
+                <Text style={styles.receiptFooter}>
+                  This is a digitally generated receipt. No signature required.
+                </Text>
+
+                {/* Download button */}
+                <TouchableOpacity
+                  style={styles.downloadBtn}
+                  activeOpacity={0.8}
+                  onPress={() => downloadPdf(receiptTxn.receiptUrl)}
+                >
+                  <Download size={18} color="#fff" />
+                  <Text style={styles.downloadBtnText}>Download PDF Receipt</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 16 }} />
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -543,4 +678,92 @@ const getStyles = (theme: string, colors: any) => StyleSheet.create({
     marginTop: 4,
   },
   loadMoreText: { color: colors.primary, fontWeight: "800", fontSize: 13 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    maxHeight: "92%",
+    shadowColor: "#000", shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  modalTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  modalTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  modalCloseBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: colors.inputBackground,
+    justifyContent: "center", alignItems: "center",
+  },
+  modalBody: { padding: 20, gap: 16 },
+
+  // Receipt preview
+  receiptBrandStrip: {
+    alignItems: "center", paddingVertical: 18,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+  },
+  receiptBrandText: { color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: 4 },
+  receiptBrandSub: { color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 4 },
+
+  statusBanner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 10, borderRadius: 12,
+  },
+  statusBannerText: { fontSize: 14, fontWeight: "800", letterSpacing: 1 },
+
+  detailGrid: {
+    flexDirection: "row", flexWrap: "wrap", gap: 12,
+  },
+  detailCell: {
+    width: "46%", backgroundColor: colors.inputBackground,
+    borderRadius: 14, padding: 14, gap: 4,
+  },
+  detailLabel: { fontSize: 10, fontWeight: "700", color: colors.subtext, textTransform: "uppercase", letterSpacing: 0.8 },
+  detailValue: { fontSize: 13, fontWeight: "800", color: colors.text },
+  methodTag: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: colors.primary + "18",
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: "flex-start",
+  },
+  methodTagText: { fontSize: 11, fontWeight: "800", color: colors.primary },
+
+  receiptDivider: { height: 1, backgroundColor: colors.border },
+  receiptSectionTitle: { fontSize: 10, fontWeight: "800", color: colors.subtext, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 },
+
+  receiptItemRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
+  receiptItemImg: { width: 48, height: 48, borderRadius: 10 },
+  receiptItemBrand: { fontSize: 9, fontWeight: "800", color: colors.primary, textTransform: "uppercase", letterSpacing: 0.5 },
+  receiptItemName: { fontSize: 12, fontWeight: "700", color: colors.text },
+  receiptItemMeta: { fontSize: 10, color: colors.subtext, marginTop: 2 },
+  receiptItemTotal: { fontSize: 14, fontWeight: "900", color: colors.text },
+
+  receiptTotalRow: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    backgroundColor: colors.primary + "12",
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+    marginTop: 4,
+  },
+  receiptTotalLabel: { fontSize: 14, fontWeight: "700", color: colors.text },
+  receiptTotalValue: { fontSize: 20, fontWeight: "900", color: colors.primary },
+
+  receiptShipping: { fontSize: 11, color: colors.subtext, lineHeight: 18 },
+  receiptFooter: { fontSize: 10, color: colors.subtext, textAlign: "center", fontStyle: "italic" },
+
+  downloadBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 10, backgroundColor: colors.primary,
+    borderRadius: 16, paddingVertical: 16,
+    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
+  },
+  downloadBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
 });
