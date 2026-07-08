@@ -864,40 +864,92 @@ module.exports = async (req, res) => {
         const txn = await Transaction.findById(txnId).populate("userId");
         if (!txn) return res.status(404).json({ message: "Transaction not found" });
 
-        const doc = new PDFDocument({ margin: 50 });
+        // Load linked order with product details for itemized breakdown
+        let orderItems = [];
+        let shippingAddress = "";
+        if (txn.orderId) {
+          const ord = await Order.findById(txn.orderId).populate("items.productId");
+          if (ord) {
+            orderItems = ord.items || [];
+            shippingAddress = ord.shippingAddress || "";
+          }
+        }
+
+        const doc = new PDFDocument({ margin: 50, size: "A4" });
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `inline; filename="receipt_${txn.transactionId}.pdf"`);
         doc.pipe(res);
 
-        doc.fillColor("#E7396A").rect(0, 0, 612, 30).fill();
-        doc.fillColor("#333333").fontSize(22).font("Helvetica-Bold")
-           .text("MYNTRA CLONE TRANSACTION RECEIPT", 50, 60);
-        doc.fontSize(10).font("Helvetica").fillColor("#777777")
-           .text(`Invoice Issued: ${new Date().toLocaleString("en-IN")}`, 50, 85);
-        doc.strokeColor("#E0E0E0").lineWidth(1).moveTo(50, 105).lineTo(562, 105).stroke();
-        doc.fillColor("#333333").fontSize(12).font("Helvetica-Bold").text("Billed To:", 50, 125);
-        doc.fontSize(10).font("Helvetica")
-           .text(`Customer: ${txn.userId?.fullName || "Guest"}`)
-           .text(`Email: ${txn.userId?.email || "N/A"}`);
-        doc.fontSize(12).font("Helvetica-Bold").text("Transaction Summary", 300, 125);
-        doc.fontSize(10).font("Helvetica")
-           .text(`Transaction ID: ${txn.transactionId}`, 300, 140)
-           .text(`Status: ${txn.status.toUpperCase()}`)
-           .text(`Payment Mode: ${txn.paymentMethod.toUpperCase()}`)
-           .text(`Date: ${txn.createdAt.toLocaleString("en-IN")}`);
-        doc.strokeColor("#E0E0E0").moveTo(50, 205).lineTo(562, 205).stroke();
-        doc.fontSize(12).font("Helvetica-Bold").text("Description", 50, 225).text("Amount (INR)", 450, 225, { align: "right" });
-        doc.strokeColor("#999999").moveTo(50, 240).lineTo(562, 240).stroke();
-        doc.fontSize(10).font("Helvetica")
-           .text("Online Retail Purchase", 50, 255)
-           .text(`INR ${txn.amount.toFixed(2)}`, 450, 255, { align: "right" });
-        doc.strokeColor("#E0E0E0").moveTo(50, 280).lineTo(562, 280).stroke();
-        doc.rect(350, 300, 212, 40).fillColor("#F9F9F9").fill().stroke();
-        doc.fillColor("#333333").fontSize(12).font("Helvetica-Bold")
-           .text("Total Paid:", 360, 314)
-           .text(`\u20B9${txn.amount.toFixed(2)}`, 470, 314, { align: "right" });
-        doc.fontSize(8).font("Helvetica-Oblique").fillColor("#999999")
-           .text("Computer generated invoice — no physical signature required.", 50, 700, { align: "center" });
+        // Header bar
+        doc.fillColor("#E7396A").rect(0, 0, 595, 36).fill();
+        doc.fillColor("#ffffff").fontSize(16).font("Helvetica-Bold")
+           .text("MYNTRA — PURCHASE RECEIPT", 50, 10);
+        doc.fillColor("#333333").fontSize(20).font("Helvetica-Bold")
+           .text("Tax Invoice", 50, 55);
+        doc.fontSize(9).font("Helvetica").fillColor("#666666")
+           .text(`Generated: ${new Date().toLocaleString("en-IN")}`, 50, 78);
+
+        // Two-column info block
+        doc.strokeColor("#E0E0E0").lineWidth(1).moveTo(50, 100).lineTo(545, 100).stroke();
+        const leftX = 50, rightX = 310, infoY = 115;
+        doc.fillColor("#333333").fontSize(11).font("Helvetica-Bold").text("Billed To", leftX, infoY);
+        doc.fontSize(9).font("Helvetica").fillColor("#444444")
+           .text(txn.userId?.fullName || "Guest Customer", leftX, infoY + 16)
+           .text(txn.userId?.email || "N/A", leftX, infoY + 28);
+        if (shippingAddress) doc.text(shippingAddress, leftX, infoY + 40, { width: 240 });
+
+        doc.fillColor("#333333").fontSize(11).font("Helvetica-Bold").text("Transaction Details", rightX, infoY);
+        doc.fontSize(9).font("Helvetica").fillColor("#444444")
+           .text(`ID: ${txn.transactionId}`, rightX, infoY + 16)
+           .text(`Status: ${txn.status.toUpperCase()}`, rightX, infoY + 28)
+           .text(`Method: ${txn.paymentMethod.toUpperCase()}`, rightX, infoY + 40)
+           .text(`Date: ${txn.createdAt.toLocaleString("en-IN")}`, rightX, infoY + 52);
+
+        // Items table
+        const tableTop = 220;
+        doc.strokeColor("#E0E0E0").moveTo(50, tableTop - 5).lineTo(545, tableTop - 5).stroke();
+        doc.fillColor("#F5F5F5").rect(50, tableTop, 495, 20).fill();
+        doc.fillColor("#333333").fontSize(9).font("Helvetica-Bold")
+           .text("#", 54, tableTop + 5)
+           .text("Item / Product", 70, tableTop + 5)
+           .text("Size", 310, tableTop + 5)
+           .text("Qty", 360, tableTop + 5)
+           .text("Unit Price", 395, tableTop + 5)
+           .text("Total", 490, tableTop + 5, { align: "right" });
+
+        let rowY = tableTop + 24;
+        const displayItems = orderItems.length > 0
+          ? orderItems
+          : [{ productId: { name: "Online Retail Purchase" }, size: "—", quantity: 1, price: txn.amount }];
+
+        displayItems.forEach((item, idx) => {
+          const name = item.productId?.name || item.name || "Product";
+          const brand = item.productId?.brand || "";
+          const size = item.size || "—";
+          const qty = item.quantity || 1;
+          const unitPrice = item.price || (txn.amount / qty);
+          const lineTotal = unitPrice * qty;
+          if (idx % 2 === 1) doc.fillColor("#FAFAFA").rect(50, rowY - 2, 495, 18).fill();
+          doc.fillColor("#333333").fontSize(8).font("Helvetica")
+             .text(String(idx + 1), 54, rowY)
+             .text(brand ? `${brand} — ${name}` : name, 70, rowY, { width: 235 })
+             .text(size, 310, rowY)
+             .text(String(qty), 360, rowY)
+             .text(`\u20B9${unitPrice.toFixed(2)}`, 395, rowY)
+             .text(`\u20B9${lineTotal.toFixed(2)}`, 490, rowY, { align: "right" });
+          rowY += 20;
+        });
+
+        // Totals
+        doc.strokeColor("#E0E0E0").moveTo(50, rowY + 6).lineTo(545, rowY + 6).stroke();
+        doc.fillColor("#E7396A").rect(350, rowY + 14, 195, 26).fill();
+        doc.fillColor("#ffffff").fontSize(12).font("Helvetica-Bold")
+           .text("TOTAL PAID:", 358, rowY + 20)
+           .text(`\u20B9${txn.amount.toFixed(2)}`, 490, rowY + 20, { align: "right" });
+
+        // Footer
+        doc.fontSize(7).font("Helvetica-Oblique").fillColor("#999999")
+           .text("This is a computer generated invoice — no physical signature required.", 50, 780, { align: "center", width: 495 });
         doc.end();
         return;
       }
@@ -970,9 +1022,10 @@ module.exports = async (req, res) => {
 
       // ── List Transactions with Filtering + Cursor Pagination ──────────────
       if (method === "GET") {
-        const { userId, status, paymentMethod, startDate, endDate, cursor, limit = "10" } = query;
+        const { userId, status, paymentMethod, startDate, endDate, cursor, limit = "20", sort = "desc" } = query;
         if (!userId) return res.status(400).json({ message: "userId is required" });
-        const queryLimit = parseInt(limit, 10);
+        const queryLimit = Math.min(parseInt(limit, 10) || 20, 100);
+        const sortDir = sort === "asc" ? 1 : -1;
         const filter = { userId };
         if (status) filter.status = status;
         if (paymentMethod) filter.paymentMethod = paymentMethod;
@@ -986,19 +1039,40 @@ module.exports = async (req, res) => {
             const decodedDate = new Date(Buffer.from(cursor, "base64").toString("ascii"));
             if (!isNaN(decodedDate.getTime())) {
               if (!filter.createdAt) filter.createdAt = {};
-              filter.createdAt.$lt = decodedDate;
+              filter.createdAt[sortDir === -1 ? "$lt" : "$gt"] = decodedDate;
             }
           } catch { return res.status(400).json({ message: "Invalid cursor" }); }
         }
-        const transactions = await Transaction.find(filter).sort({ createdAt: -1 }).limit(queryLimit + 1);
+        const transactions = await Transaction
+          .find(filter)
+          .populate({ path: "orderId", populate: { path: "items.productId" } })
+          .sort({ createdAt: sortDir })
+          .limit(queryLimit + 1);
         const hasNextPage = transactions.length > queryLimit;
         const results = hasNextPage ? transactions.slice(0, queryLimit) : transactions;
         const host = req.headers.host;
-        const formattedResults = results.map(t => { const o = t.toObject(); o.receiptUrl = generateReceiptLink(host, t._id.toString()); return o; });
+        const formattedResults = results.map(t => {
+          const o = t.toObject();
+          o.receiptUrl = generateReceiptLink(host, t._id.toString());
+          // Attach itemized breakdown from linked order
+          if (o.orderId && o.orderId.items) {
+            o.items = o.orderId.items.map(item => ({
+              name: item.productId?.name || "Product",
+              brand: item.productId?.brand || "",
+              image: item.productId?.images?.[0] || null,
+              size: item.size,
+              quantity: item.quantity,
+              price: item.price,
+              lineTotal: item.price * item.quantity
+            }));
+            o.shippingAddress = o.orderId.shippingAddress;
+          }
+          return o;
+        });
         const nextCursor = hasNextPage && results.length > 0
           ? Buffer.from(results[results.length - 1].createdAt.toISOString()).toString("base64")
           : null;
-        return res.json({ data: formattedResults, nextCursor, hasNextPage });
+        return res.json({ data: formattedResults, nextCursor, hasNextPage, total: await Transaction.countDocuments(filter) });
       }
     }
 
