@@ -7,14 +7,20 @@
 //   Uses the Render backend directly: https://myntra-intern.onrender.com
 //   CORS is configured on Render to allow requests from the Vercel domain.
 //
+import { Platform } from "react-native";
+
 export const RENDER_BACKEND_URL = "https://myntra-intern.onrender.com";
 
 const API_URL: string = (() => {
-  // Explicit override wins (local dev, CI, etc.)
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
-  // Production (Web & Native) → Render backend
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      return "http://localhost:5000";
+    }
+    return "/api";
+  }
   return RENDER_BACKEND_URL;
 })();
 
