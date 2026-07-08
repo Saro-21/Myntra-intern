@@ -12,3 +12,5 @@ backend/.env
 
 # Optional: Ignore other unnecessary files
 *.log
+.vercel
+.env*

@@ -109,8 +109,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 2. GET /transaction/export/csv - Stream CSV generation for large exports
-router.get("/export/csv", async (req, res) => {
+// 2. GET /transaction/export - Stream CSV generation for large exports (also supports /export/csv)
+router.get(["/export", "/export/csv"], async (req, res) => {
   const { userId, status, paymentMethod, startDate, endDate } = req.query;
 
   if (!userId) {
