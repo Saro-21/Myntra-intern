@@ -104,10 +104,17 @@ router.post("/", async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
-  const userid = req.query.userId;
+  let userid = req.query.userId;
+  if (userid === "undefined" || userid === "null") userid = undefined;
+
   if (!userid) {
     return res.status(400).json({ message: "userId query parameter is required" });
   }
+
+  if (!mongoose.Types.ObjectId.isValid(userid)) {
+    return res.status(400).json({ message: "Invalid userId format" });
+  }
+
   try {
     const order = await Order.find({ userId: userid }).populate(
       "items.productId"
@@ -158,6 +165,11 @@ router.post("/create/:userId", async (req, res) => {
   }
 });
 router.get("/user/:userid", async (req, res) => {
+  let userid = req.params.userid;
+  if (userid === "undefined" || userid === "null") userid = undefined;
+  if (!userid || !mongoose.Types.ObjectId.isValid(userid)) {
+    return res.status(400).json({ message: "Invalid userId format" });
+  }
   try {
     const order = await Order.find({ userId: req.params.userid }).populate(
       "items.productId"

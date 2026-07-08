@@ -32,10 +32,15 @@ function verifyReceiptLink(transactionId, expires, signature) {
 
 // 1. GET /transaction - Fetch transactions with filtering, sorting, and cursor pagination
 router.get("/", async (req, res) => {
-  const { userId, status, paymentMethod, startDate, endDate, cursor, limit = 10 } = req.query;
+  let { userId, status, paymentMethod, startDate, endDate, cursor, limit = 10, sort } = req.query;
+  if (userId === "undefined" || userId === "null") userId = undefined;
 
   if (!userId) {
     return res.status(400).json({ message: "userId is required" });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: "Invalid userId format" });
   }
 
   const queryLimit = parseInt(limit, 10);

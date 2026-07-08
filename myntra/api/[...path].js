@@ -334,6 +334,17 @@ module.exports = async (req, res) => {
     : parseQuery(raw);
 
   try {
+    // Sanitize any query.userId or req.body.userId if they are "undefined" or "null" strings
+    if (query.userId === "undefined" || query.userId === "null") query.userId = undefined;
+    if (req.body && (req.body.userId === "undefined" || req.body.userId === "null")) req.body.userId = undefined;
+
+    // Reject invalid ObjectId formats (non-empty strings) to prevent CastErrors
+    if (query.userId && typeof query.userId === "string" && !mongoose.Types.ObjectId.isValid(query.userId)) {
+      return res.status(400).json({ message: "Invalid userId format" });
+    }
+    if (req.body && req.body.userId && typeof req.body.userId === "string" && !mongoose.Types.ObjectId.isValid(req.body.userId)) {
+      return res.status(400).json({ message: "Invalid userId format" });
+    }
     // ── Health check ───────────────────────────────────────────────────────
     if (!path0) return res.json({ message: "Myntra API working on Vercel" });
 

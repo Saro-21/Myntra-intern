@@ -23,6 +23,8 @@ app.use(cors({
     "https://web-developement-intern.vercel.app",
     "https://myntra-pearl.vercel.app",
     "http://localhost:8081",
+    "http://localhost:8082",
+    "http://localhost:8083",
     "http://localhost:19006",
     /\.vercel\.app$/, // Allow all Vercel preview deployments
   ],
