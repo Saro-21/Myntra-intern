@@ -75,10 +75,13 @@ router.get("/", async (req, res) => {
     }
   }
 
+  const sortDir = sort === "asc" ? 1 : -1;
+
   try {
     // Fetch queryLimit + 1 items to check if there is a next page
     const transactions = await Transaction.find(filter)
-      .sort({ createdAt: -1 })
+      .populate({ path: "orderId", populate: { path: "items.productId" } })
+      .sort({ createdAt: sortDir })
       .limit(queryLimit + 1);
 
     const hasNextPage = transactions.length > queryLimit;
@@ -89,6 +92,18 @@ router.get("/", async (req, res) => {
     const formattedResults = results.map(t => {
       const plainObj = t.toObject();
       plainObj.receiptUrl = generateReceiptLink(host, t._id.toString());
+      if (plainObj.orderId && plainObj.orderId.items) {
+        plainObj.items = plainObj.orderId.items.map(item => ({
+          name: item.productId?.name || item.name || "Product",
+          brand: item.productId?.brand || "",
+          image: item.productId?.images?.[0] || null,
+          size: item.size || "—",
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          lineTotal: (item.price || 0) * (item.quantity || 1)
+        }));
+        plainObj.shippingAddress = plainObj.orderId.shippingAddress || "";
+      }
       return plainObj;
     });
 

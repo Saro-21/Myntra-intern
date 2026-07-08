@@ -39,7 +39,7 @@ interface Transaction {
 }
 
 const STATUS_OPTIONS = ["All", "success", "pending", "failed", "refunded"];
-const METHOD_OPTIONS = ["All", "card", "upi", "netbanking", "wallet", "cod"];
+const METHOD_OPTIONS = ["All", "card", "upi"];
 const SORT_OPTIONS = [
   { label: "Newest First", value: "desc" },
   { label: "Oldest First", value: "asc" },
@@ -472,9 +472,6 @@ export default function Payments() {
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => fetchTransactions(true)}>
             <RefreshCw size={18} color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={handleExport}>
-            <Download size={18} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
