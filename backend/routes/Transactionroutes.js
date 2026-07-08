@@ -180,8 +180,40 @@ router.get("/receipt/:id", async (req, res) => {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
+    // Retrieve order items if order exists
+    let orderItems = [];
+    if (transaction.orderId) {
+      const ord = await Order.findById(transaction.orderId).populate("items.productId");
+      if (ord) {
+        orderItems = ord.items || [];
+      }
+    }
+
+    // Flatten items so that if quantity > 1, it appears on separate rows as requested
+    const displayItems = [];
+    if (orderItems.length > 0) {
+      orderItems.forEach(item => {
+        const qty = item.quantity || 1;
+        for (let i = 0; i < qty; i++) {
+          displayItems.push({
+            name: item.productId?.name || item.name || "Product",
+            brand: item.productId?.brand || "",
+            size: item.size || "—",
+            price: item.price || (transaction.amount / qty),
+          });
+        }
+      });
+    } else {
+      displayItems.push({
+        name: "Online Retail Purchase - Items shipped per Order Reference",
+        brand: "",
+        size: "—",
+        price: transaction.amount,
+      });
+    }
+
     // Initialize beautiful PDF Document
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
     
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="receipt_${transaction.transactionId}.pdf"`);
@@ -190,7 +222,7 @@ router.get("/receipt/:id", async (req, res) => {
 
     // Decorative Header (Myntra Colors / Design aesthetics)
     doc.fillColor("#E7396A") // Myntra Pink
-       .rect(0, 0, 612, 30) // top strip
+       .rect(0, 0, 595, 30) // top strip
        .fill();
 
     doc.fillColor("#333333");
@@ -209,7 +241,7 @@ router.get("/receipt/:id", async (req, res) => {
     doc.strokeColor("#E0E0E0")
        .lineWidth(1)
        .moveTo(50, 105)
-       .lineTo(562, 105)
+       .lineTo(545, 105)
        .stroke();
 
     // Bill to Details
@@ -237,47 +269,56 @@ router.get("/receipt/:id", async (req, res) => {
 
     doc.strokeColor("#E0E0E0")
        .moveTo(50, 205)
-       .lineTo(562, 205)
+       .lineTo(545, 205)
        .stroke();
 
-    // Main line items
-    doc.fontSize(12)
-       .font("Helvetica-Bold")
-       .text("Description", 50, 225)
-       .text("Amount (INR)", 450, 225, { align: "right" });
+    // Main table headers
+    const tableTop = 220;
+    doc.strokeColor("#E0E0E0").moveTo(50, tableTop - 5).lineTo(545, tableTop - 5).stroke();
+    doc.fillColor("#F5F5F5").rect(50, tableTop, 495, 20).fill();
+    doc.fillColor("#333333").fontSize(9).font("Helvetica-Bold")
+       .text("#", 54, tableTop + 5)
+       .text("Item / Product Description", 75, tableTop + 5)
+       .text("Size", 350, tableTop + 5)
+       .text("Qty", 400, tableTop + 5)
+       .text("Amount (INR)", 450, tableTop + 5, { align: "right" });
 
-    doc.strokeColor("#999999")
-       .moveTo(50, 240)
-       .lineTo(562, 240)
-       .stroke();
-
-    doc.fontSize(10)
-       .font("Helvetica")
-       .text("Online Retail Purchase - Items shipped per Order Reference", 50, 255)
-       .text(`INR ${transaction.amount.toFixed(2)}`, 450, 255, { align: "right" });
+    let rowY = tableTop + 24;
+    displayItems.forEach((item, idx) => {
+      if (idx % 2 === 1) doc.fillColor("#FAFAFA").rect(50, rowY - 2, 495, 18).fill();
+      const desc = item.brand ? `${item.brand} — ${item.name}` : item.name;
+      doc.fillColor("#333333").fontSize(8).font("Helvetica")
+         .text(String(idx + 1), 54, rowY)
+         .text(desc, 75, rowY, { width: 260 })
+         .text(item.size, 350, rowY)
+         .text("1", 400, rowY)
+         .text(`INR ${item.price.toFixed(2)}`, 450, rowY, { align: "right" });
+      rowY += 20;
+    });
 
     doc.strokeColor("#E0E0E0")
-       .moveTo(50, 280)
-       .lineTo(562, 280)
+       .moveTo(50, rowY + 6)
+       .lineTo(545, rowY + 6)
        .stroke();
 
     // Total Amount Box
-    doc.rect(350, 300, 212, 40)
+    doc.rect(333, rowY + 14, 212, 32)
        .fillColor("#F9F9F9")
        .fill()
+       .strokeColor("#E0E0E0")
        .stroke();
 
-    doc.fillColor("#333333")
-       .fontSize(12)
+    doc.fillColor("#E7396A")
+       .fontSize(11)
        .font("Helvetica-Bold")
-       .text("Total Paid:", 360, 314)
-       .text(`₹${transaction.amount.toFixed(2)}`, 470, 314, { align: "right" });
+       .text("Total Paid:", 345, rowY + 24)
+       .text(`INR ${transaction.amount.toFixed(2)}`, 440, rowY + 24, { align: "right", width: 95 });
 
     // Footer note
     doc.fontSize(8)
        .font("Helvetica-Oblique")
        .fillColor("#999999")
-       .text("This is a computer generated invoice and does not require a physical signature.", 50, 700, { align: "center" });
+       .text("This is a computer generated invoice and does not require a physical signature.", 50, 780, { align: "center", width: 495 });
 
     doc.end();
   } catch (error) {

@@ -917,11 +917,30 @@ module.exports = async (req, res) => {
            .text("Unit Price", 395, tableTop + 5)
            .text("Total", 490, tableTop + 5, { align: "right" });
 
-        let rowY = tableTop + 24;
-        const displayItems = orderItems.length > 0
-          ? orderItems
-          : [{ productId: { name: "Online Retail Purchase" }, size: "—", quantity: 1, price: txn.amount }];
+        const displayItems = [];
+        if (orderItems.length > 0) {
+          orderItems.forEach(item => {
+            const qty = item.quantity || 1;
+            for (let i = 0; i < qty; i++) {
+              displayItems.push({
+                productId: item.productId,
+                name: item.name,
+                size: item.size || "—",
+                price: item.price || (txn.amount / qty),
+                quantity: 1
+              });
+            }
+          });
+        } else {
+          displayItems.push({
+            productId: { name: "Online Retail Purchase" },
+            size: "—",
+            price: txn.amount,
+            quantity: 1
+          });
+        }
 
+        let rowY = tableTop + 24;
         displayItems.forEach((item, idx) => {
           const name = item.productId?.name || item.name || "Product";
           const brand = item.productId?.brand || "";
