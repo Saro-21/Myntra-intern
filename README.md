@@ -3,7 +3,7 @@
 A feature-rich Myntra clone built with **React Native (Expo)** for the frontend and a **Node.js/Express/MongoDB** backend — deployed as **Vercel Serverless Functions**.
 
 🌐 **Live URL:** [https://web-developement-intern.vercel.app](https://web-developement-intern.vercel.app)
-
+https://myntra-intern.vercel.app/
 ---
 
 ## ✨ Features
